@@ -6,8 +6,8 @@ Provides a user interface for connecting to the server, sending navigation comma
 import tkinter as tk
 from tkinter import ttk
 from ttkbootstrap import Style
-from ttkbootstrap.constants import *
-from mqtt_client import PresentationMqttClient
+from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
+from presentation_clicker_client.mqtt_client import PresentationMqttClient
 from typing import Optional
 
 class PresentationClickerApp:
@@ -59,15 +59,14 @@ class PresentationClickerApp:
             padding=(10,10), bootstyle="secondary"
         )
         # Connection inputs
-        L = ttk.Label; E = ttk.Entry; B = ttk.Button
-        self.lbl_name: ttk.Label = L(self.frm_connect, text="Display Name:", font=self.font_ui)
-        self.ent_name: ttk.Entry = E(self.frm_connect, font=self.font_ui, width=25)
-        self.lbl_room: ttk.Label = L(self.frm_connect, text="Room Code:",    font=self.font_ui)
-        self.ent_room: ttk.Entry = E(self.frm_connect, font=self.font_ui, width=15)
-        self.btn_paste_room: ttk.Button = B(self.frm_connect, text="Paste", width=6, command=lambda: self._paste_to_entry(self.ent_room))
-        self.lbl_pwd: ttk.Label  = L(self.frm_connect, text="Password:",     font=self.font_ui)
-        self.ent_pwd: ttk.Entry  = E(self.frm_connect, font=self.font_ui, width=15, show="*")
-        self.btn_paste_pwd: ttk.Button = B(self.frm_connect, text="Paste", width=6, command=lambda: self._paste_to_entry(self.ent_pwd))
+        self.lbl_name: ttk.Label = ttk.Label(self.frm_connect, text="Display Name:", font=self.font_ui)
+        self.ent_name: ttk.Entry = ttk.Entry(self.frm_connect, font=self.font_ui, width=25)
+        self.lbl_room: ttk.Label = ttk.Label(self.frm_connect, text="Room Code:",    font=self.font_ui)
+        self.ent_room: ttk.Entry = ttk.Entry(self.frm_connect, font=self.font_ui, width=15)
+        self.btn_paste_room: ttk.Button = ttk.Button(self.frm_connect, text="Paste", width=6, command=lambda: self._paste_to_entry(self.ent_room))
+        self.lbl_pwd: ttk.Label  = ttk.Label(self.frm_connect, text="Password:",     font=self.font_ui)
+        self.ent_pwd: ttk.Entry  = ttk.Entry(self.frm_connect, font=self.font_ui, width=15, show="*")
+        self.btn_paste_pwd: ttk.Button = ttk.Button(self.frm_connect, text="Paste", width=6, command=lambda: self._paste_to_entry(self.ent_pwd))
         # Connect / Disconnect
         self.btn_connect: ttk.Button = ttk.Button(
             self.frm_connect, text="Connect", bootstyle="success-outline",
@@ -262,6 +261,9 @@ class PresentationClickerApp:
         """
         self.root.mainloop()
 
-if __name__ == "__main__":
+def main():
     app = PresentationClickerApp()
     app.run()
+
+if __name__ == "__main__":
+    main()

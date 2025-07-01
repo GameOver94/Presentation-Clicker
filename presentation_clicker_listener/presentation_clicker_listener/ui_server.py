@@ -6,8 +6,8 @@ Provides a user interface for managing room, users, permissions, and logs.
 import tkinter as tk
 from tkinter import ttk
 from ttkbootstrap import Style
-from ttkbootstrap.constants import *
-from mqtt_server import PresentationMqttServer
+from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
+from presentation_clicker_listener.mqtt_server import PresentationMqttServer
 import random
 import string
 import keyboard
@@ -51,15 +51,14 @@ class ServerListenerApp:
         self.frm_connect: ttk.LabelFrame = ttk.LabelFrame(
             self.frm_top, text="Connection",
             padding=(10,10), bootstyle="primary")
-        L = ttk.Label; E = ttk.Entry; B = ttk.Button
-        self.lbl_room: ttk.Label = L(self.frm_connect, text="Room Code:", font=self.font_ui)
-        self.ent_room: ttk.Entry = E(self.frm_connect, font=self.font_ui, width=18)
-        self.btn_gen_room: ttk.Button = B(self.frm_connect, text="Generate", width=8, command=self._generate_room)
-        self.btn_copy_room: ttk.Button = B(self.frm_connect, text="Copy", width=5, command=lambda: self._copy_from_entry(self.ent_room))
-        self.lbl_pwd: ttk.Label  = L(self.frm_connect, text="Password:", font=self.font_ui)
-        self.ent_pwd: ttk.Entry  = E(self.frm_connect, font=self.font_ui, width=18)
-        self.btn_gen_pwd: ttk.Button = B(self.frm_connect, text="Generate", width=8, command=self._generate_pwd)
-        self.btn_copy_pwd: ttk.Button = B(self.frm_connect, text="Copy", width=5, command=lambda: self._copy_from_entry(self.ent_pwd))
+        self.lbl_room: ttk.Label = ttk.Label(self.frm_connect, text="Room Code:", font=self.font_ui)
+        self.ent_room: ttk.Entry = ttk.Entry(self.frm_connect, font=self.font_ui, width=18)
+        self.btn_gen_room: ttk.Button = ttk.Button(self.frm_connect, text="Generate", width=8, command=self._generate_room)
+        self.btn_copy_room: ttk.Button = ttk.Button(self.frm_connect, text="Copy", width=5, command=lambda: self._copy_from_entry(self.ent_room))
+        self.lbl_pwd: ttk.Label  = ttk.Label(self.frm_connect, text="Password:", font=self.font_ui)
+        self.ent_pwd: ttk.Entry  = ttk.Entry(self.frm_connect, font=self.font_ui, width=18)
+        self.btn_gen_pwd: ttk.Button = ttk.Button(self.frm_connect, text="Generate", width=8, command=self._generate_pwd)
+        self.btn_copy_pwd: ttk.Button = ttk.Button(self.frm_connect, text="Copy", width=5, command=lambda: self._copy_from_entry(self.ent_pwd))
         self.frm_connect_btns: ttk.Frame = ttk.Frame(self.frm_connect)
         self.btn_connect: ttk.Button = ttk.Button(
             self.frm_connect_btns, text="Connect", bootstyle="success-outline",
@@ -329,6 +328,9 @@ class ServerListenerApp:
         """
         self.root.mainloop()
 
-if __name__ == "__main__":
+def main():
     app = ServerListenerApp()
     app.run()
+
+if __name__ == "__main__":
+    main()
