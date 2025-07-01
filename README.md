@@ -1,0 +1,73 @@
+# Presentation Clicker
+
+A cross-platform, secure, and user-friendly remote presentation control system. This project enables users to control presentation slides from any device over a network using MQTT, with a graphical interface for both presenters (Listener) and remote controllers (Client).
+
+## Purpose
+
+Presentation Clicker is designed to make remote presentation control seamless, secure, and intuitive. It is especially useful for online conferences, meetings, and town halls where multiple presenters need to control a centrally hosted presentation. With this tool, presenters can advance their own slides without needing to ask someone else to do it — eliminating the need for the "Next slide, please." The system ensures ease of use for all participants.
+
+## Components
+
+### Listener (Server)
+- **Role:** Acts as the presentation host.
+- **Function:** Runs on the presentation computer, listens for commands from clients, manages user permissions, and simulates keyboard events to control the presentation software (e.g., PowerPoint, PDF viewers).
+- **Features:**
+  - Secure MQTT communication with encryption
+  - User management and permission control
+  - GUI for monitoring connected users and logs
+
+### Client
+- **Role:** Acts as the remote control.
+- **Function:** Runs on any device (laptop, tablet, etc.), connects to the listener, and sends navigation commands (next, previous, start, end, blackout) to control the presentation.
+- **Features:**
+  - Secure MQTT communication with encryption
+  - Simple GUI for connecting and sending commands
+  - Log window for feedback
+
+## Installation
+
+### 1. Download the Project
+
+Clone the repository or download the source code:
+
+```powershell
+git clone https://github.com/GameOver94/Presentation-Clicker-Development.git
+cd Presentation-Clicker-Development
+```
+
+### 2. Install with pipx
+
+#### Client
+```powershell
+pipx install ./presentation_clicker_client
+```
+
+#### Listener
+```powershell
+pipx install ./presentation_clicker_listener
+```
+
+> **Note:** Make sure you have [pipx](https://pypa.github.io/pipx/) installed and available in your PATH.
+
+## Usage
+
+### Run the Client
+```powershell
+presentation-clicker-client
+```
+
+### Run the Listener
+```powershell
+presentation-clicker-listener
+```
+
+Both commands will launch a graphical interface. Follow the on-screen instructions to connect and control your presentation.
+
+## Requirements
+- Python 3.9+
+- pipx
+- MQTT broker (default: test.mosquitto.org)
+
+## License
+
+MIT License. See [LICENSE.md](LICENSE.md) for details.
