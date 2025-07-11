@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - mqttnet
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --url tcp://mosquitto:1883
+    environment:
+      - TUNNEL_TOKEN=<your-tunnel-token>
+    depends_on:
+      - mosquitto
+    networks:
+      - mqttnet
+
+networks:
+  mqttnet:
+    driver: bridge
