@@ -63,6 +63,36 @@ presentation-clicker-listener
 
 Both commands will launch a graphical interface. Follow the on-screen instructions to connect and control your presentation.
 
+## Command Line Options (Advanced)
+
+Both the client and listener support the following command line arguments for advanced configuration and troubleshooting:
+
+| Option              | Description                                                      | Example                                 |
+|---------------------|------------------------------------------------------------------|-----------------------------------------|
+| `--host HOST`       | Set the MQTT broker host (overrides config file)                   | `--host mqtt.example.com`               |
+| `--port PORT`       | Set the MQTT broker port (overrides config file)                   | `--port 1883`                           |
+| `--keepalive SEC`   | Set the MQTT keepalive interval in seconds (overrides config file) | `--keepalive 30`                        |
+| `--open-config-dir` | Open the folder containing the MQTT config file and exit           | `--open-config-dir`                     |
+
+- You can combine `--host`, `--port`, and `--keepalive` to update the config file.
+- If you use `--open-config-dir` with other options, the config is updated first, then the folder opens.
+- If you use command line options, the config is updated and the app does not launch.
+
+**Examples:**
+
+```powershell
+# Update broker host and port
+presentation-clicker-client --host mqtt.example.com --port 1884
+
+# Open the config folder
+presentation-clicker-client --open-config-dir
+
+# Update config and open the folder
+presentation-clicker-client --host mqtt.example.com --open-config-dir
+```
+
+The same options are available for `presentation-clicker-listener`.
+
 ## Requirements
 - Python 3.9+
 - pipx

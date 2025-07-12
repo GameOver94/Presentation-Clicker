@@ -3,14 +3,18 @@ ui_server.py
 Presentation Clicker Server UI using Tkinter and ttkbootstrap.
 Provides a user interface for managing room, users, permissions, and logs.
 """
+import argparse
+import datetime
+import json
+import keyboard
+import os
+import random
+import string
 import tkinter as tk
 from tkinter import ttk
 from ttkbootstrap import Style
 from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
 from presentation_clicker_listener.mqtt_server import PresentationMqttServer
-import random
-import string
-import keyboard
 from typing import Optional, Any
 
 class ServerListenerApp:
@@ -180,17 +184,25 @@ class ServerListenerApp:
         self._update_user(user, self.user_rows[user]["nav"], self.user_rows[user]["control"])
         self._log(f"Permission changed for {user}: nav={self.user_rows[user]['nav']}, control={self.user_rows[user]['control']}")
 
+    def _set_title_with_server(self):
+        """
+        Set the window title to include the connected MQTT server host and port.
+        """
+        host = self.mqtt.config.get('host', 'unknown')
+        port = self.mqtt.config.get('port', 'unknown')
+        self.root.title(f"Presentation Clicker Server - MQTT: {host}:{port}")
+
     def _on_mqtt_connect(self) -> None:
         """
         MQTT callback: connected. Enables/disables UI elements.
         """
-        self.root.after(0, lambda: self._set_connected(True))
+        self.root.after(0, lambda: (self._set_connected(True), self._set_title_with_server()))
 
     def _on_mqtt_disconnect(self) -> None:
         """
         MQTT callback: disconnected. Enables/disables UI elements.
         """
-        self.root.after(0, lambda: self._set_connected(False))
+        self.root.after(0, lambda: (self._set_connected(False), self.root.title("Presentation Clicker Server")))
 
     def _on_mqtt_message(self, topic: str, payload: str) -> None:
         """
@@ -208,7 +220,6 @@ class ServerListenerApp:
             topic: MQTT topic string.
             payload: Decrypted message payload.
         """
-        import json
         try:
             data = json.loads(payload)
         except Exception:
@@ -289,7 +300,6 @@ class ServerListenerApp:
         Args:
             msg: Message string.
         """
-        import datetime
         timestamp: str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.txt_log.config(state=tk.NORMAL)
         self.txt_log.insert("end", f"[{timestamp}] {msg}\n")
@@ -328,7 +338,73 @@ class ServerListenerApp:
         """
         self.root.mainloop()
 
+def update_mqtt_config(config_path, host=None, port=None, keepalive=None):
+    """
+    Update the MQTT config file with provided values.
+    """
+    config = {}
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+        except Exception:
+            pass
+    changed = False
+    if host is not None:
+        config['host'] = host
+        changed = True
+    if port is not None:
+        config['port'] = port
+        changed = True
+    if keepalive is not None:
+        config['keepalive'] = keepalive
+        changed = True
+    if changed:
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2)
+
 def main():
+    parser = argparse.ArgumentParser(description="Presentation Clicker Server UI")
+    parser.add_argument('--host', type=str, help='MQTT broker host')
+    parser.add_argument('--port', type=int, help='MQTT broker port (1-65535)')
+    parser.add_argument('--keepalive', type=int, help='MQTT keepalive interval (positive integer)')
+    parser.add_argument('--open-config-dir', action='store_true', help='Open the folder containing the config file and exit')
+    args = parser.parse_args()
+
+    # Fixed config file path (relative to this file)
+    config_path = os.path.join(os.path.dirname(__file__), 'mqtt_config.json')
+    config_dir = os.path.dirname(config_path)
+
+    # Validate arguments
+    if args.host is not None and (not isinstance(args.host, str) or not args.host.strip()):
+        print("Error: --host must be a non-empty string.")
+        return
+    if args.port is not None:
+        if not (1 <= args.port <= 65535):
+            print("Error: --port must be an integer between 1 and 65535.")
+            return
+    if args.keepalive is not None:
+        if args.keepalive <= 0:
+            print("Error: --keepalive must be a positive integer.")
+            return
+
+    # If any config argument is provided, update config
+    config_changed = False
+    if args.host is not None or args.port is not None or args.keepalive is not None:
+        update_mqtt_config(config_path, args.host, args.port, args.keepalive)
+        print(f"Config updated: {config_path}")
+        config_changed = True
+
+    # If --open-config-dir is provided, open the folder and exit
+    if args.open_config_dir:
+        os.startfile(config_dir)
+        return
+
+    # If config was changed, exit (do not launch app)
+    if config_changed:
+        return
+
+    # Otherwise, launch the app
     app = ServerListenerApp()
     app.run()
 

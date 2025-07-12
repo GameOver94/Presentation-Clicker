@@ -1,0 +1,27 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Client as Module",
+            "type": "shell",
+            "command": "python",
+            "args": ["-m", "presentation_clicker_client.ui_client"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Listener as Module",
+            "type": "shell",
+            "command": "python",
+            "args": ["-m", "presentation_clicker_listener.ui_server"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
