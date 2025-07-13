@@ -19,13 +19,17 @@ class PresentationClickerApp:
     Presentation Clicker Client UI application.
     Handles user input, MQTT communication, and log display.
     """
-    def __init__(self, mqtt_client: Optional[PresentationMqttClient] = None, theme: str = "flatly") -> None:
+    def __init__(self, mqtt_client: Optional[PresentationMqttClient] = None, theme: str = "flatly", config_path: str = None) -> None:
         """
         Initialize the UI, MQTT client, and callbacks.
         Args:
             mqtt_client: Optional custom MQTT client instance.
             theme: ttkbootstrap theme name.
+            config_path: Path to config file for saving theme.
         """
+        self._theme_list = ["flatly", "darkly"]
+        self._theme_index = self._theme_list.index(theme) if theme in self._theme_list else 0
+        self._config_path = config_path
         # --- Theming & root ---
         self.style: Style = Style(theme=theme)
         self.root: tk.Tk = self.style.master
@@ -95,6 +99,14 @@ class PresentationClickerApp:
         self.scr_log: ttk.Scrollbar = ttk.Scrollbar(
             self.frm_log, orient=tk.VERTICAL, command=self.txt_log.yview)
         self.txt_log['yscrollcommand'] = self.scr_log.set
+        # Add Switch Theme button with icon
+        self.btn_switch_theme: ttk.Button = ttk.Button(
+            self.frm_nav,
+            text=self._get_theme_icon(),
+            width=3,
+            command=self._switch_theme,
+            style="primary.TButton"
+        )
 
     def _layout_widgets(self) -> None:
         """Lay out all widgets in the UI."""
@@ -120,6 +132,8 @@ class PresentationClickerApp:
         self.btn_paste_pwd.grid(row=2, column=2, sticky="w", **pad)
         self.btn_connect.grid(    row=1, column=3, **pad)
         self.btn_disconnect.grid( row=2, column=3, **pad)
+        # navigation frame grid
+        self.frm_nav.rowconfigure(2, weight=1)
         # navigation buttons in frm_nav
         self.btn_prev.    grid(row=0, column=0, **pad)
         self.btn_next.    grid(row=0, column=1, **pad)
@@ -136,6 +150,12 @@ class PresentationClickerApp:
         self.frm_log.columnconfigure(0, weight=1)
         self.txt_log.grid(row=0, column=0, sticky="nsew")
         self.scr_log.grid(row=0, column=1, sticky="ns")
+        # Switch theme button
+        self.btn_switch_theme.grid(row=2, column=3, sticky="se", **pad)
+
+    def _get_theme_icon(self) -> str:
+        """Return the icon for the current theme."""
+        return "☀️" if self._theme_list[self._theme_index] == "flatly" else "🌛"
 
     # ─── UI ↔ MQTT Glue ─────────────────────────────────────────────────
 
@@ -266,13 +286,31 @@ class PresentationClickerApp:
         except tk.TclError:
             pass
 
+    def _switch_theme(self):
+        """Toggle between light and dark themes and save to config. Update icon."""
+        self._theme_index = (self._theme_index + 1) % len(self._theme_list)
+        new_theme = self._theme_list[self._theme_index]
+        self.style.theme_use(new_theme)
+        # Update button icon
+        self.btn_switch_theme.config(text=self._get_theme_icon())
+        # Save theme to config
+        if self._config_path:
+            try:
+                with open(self._config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            except Exception:
+                config = {}
+            config['theme'] = new_theme
+            with open(self._config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2)
+
     def run(self) -> None:
         """
         Start the Tkinter main loop.
         """
         self.root.mainloop()
 
-def update_mqtt_config(config_path, host=None, port=None, keepalive=None):
+def update_mqtt_config(config_path, host=None, port=None, keepalive=None, transport=None, theme=None):
     """
     Update the MQTT config file with provided values.
     """
@@ -293,6 +331,12 @@ def update_mqtt_config(config_path, host=None, port=None, keepalive=None):
     if keepalive is not None:
         config['keepalive'] = keepalive
         changed = True
+    if transport is not None:
+        config['transport'] = transport
+        changed = True
+    if theme is not None:
+        config['theme'] = theme
+        changed = True
     if changed:
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
@@ -303,11 +347,23 @@ def main():
     parser.add_argument('--port', type=int, help='MQTT broker port (1-65535)')
     parser.add_argument('--keepalive', type=int, help='MQTT keepalive interval (positive integer)')
     parser.add_argument('--open-config-dir', action='store_true', help='Open the folder containing the config file and exit')
+    parser.add_argument('--transport', type=str, choices=['tcp', 'websockets'], help='MQTT transport: tcp or websockets')
+    parser.add_argument('--theme', type=str, help='UI theme (e.g., flatly, darkly)')
     args = parser.parse_args()
 
     # Fixed config file path (relative to this file)
     config_path = os.path.join(os.path.dirname(__file__), 'mqtt_config.json')
     config_dir = os.path.dirname(config_path)
+
+    # Load config to get theme (if present)
+    config = {}
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+        except Exception:
+            pass
+    theme = args.theme or config.get('theme', 'flatly')
 
     # Validate arguments
     if args.host is not None and (not isinstance(args.host, str) or not args.host.strip()):
@@ -321,11 +377,14 @@ def main():
         if args.keepalive <= 0:
             print("Error: --keepalive must be a positive integer.")
             return
+    if args.transport is not None and args.transport not in ('tcp', 'websockets'):
+        print("Error: --transport must be 'tcp' or 'websockets'.")
+        return
 
     # If any config argument is provided, update config
     config_changed = False
-    if args.host is not None or args.port is not None or args.keepalive is not None:
-        update_mqtt_config(config_path, args.host, args.port, args.keepalive)
+    if args.host is not None or args.port is not None or args.keepalive is not None or args.transport is not None or args.theme is not None:
+        update_mqtt_config(config_path, args.host, args.port, args.keepalive, args.transport, theme=args.theme)
         print(f"Config updated: {config_path}")
         config_changed = True
 
@@ -339,7 +398,7 @@ def main():
         return
 
     # Otherwise, launch the app
-    app = PresentationClickerApp()
+    app = PresentationClickerApp(theme=theme, config_path=config_path)
     app.run()
 
 if __name__ == "__main__":

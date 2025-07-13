@@ -5,8 +5,10 @@ services:
     image: eclipse-mosquitto:latest
     container_name: mosquitto
     restart: unless-stopped
-    ports:
-      - "1883:1883"
+    # Only expose ports if you want direct access; otherwise, comment out
+    # ports:
+    #   - "1883:1883"
+    #   - "9001:9001"
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
     networks:
@@ -16,9 +18,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --url tcp://mosquitto:1883
-    environment:
-      - TUNNEL_TOKEN=<your-tunnel-token>
+    command: tunnel --no-autoupdate -url http://mosquitto:9001
     depends_on:
       - mosquitto
     networks:

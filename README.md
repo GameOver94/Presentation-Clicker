@@ -24,6 +24,11 @@ Presentation Clicker is designed to make remote presentation control seamless, s
   - Simple GUI for connecting and sending commands
   - Log window for feedback
 
+### Theming: Light/Dark
+- Both the Client and Listener UIs now support switching between a light and a dark theme at runtime.
+- Use the ☀️/🌛 button in the UI to toggle between light ("flatly") and dark ("darkly") modes instantly.
+- You can also set the theme at launch with the `--theme` command line option (e.g., `--theme darkly`).
+
 ## Installation
 
 ### 1. Download the Project
@@ -72,17 +77,19 @@ Both the client and listener support the following command line arguments for ad
 | `--host HOST`       | Set the MQTT broker host (overrides config file)                   | `--host mqtt.example.com`               |
 | `--port PORT`       | Set the MQTT broker port (overrides config file)                   | `--port 1883`                           |
 | `--keepalive SEC`   | Set the MQTT keepalive interval in seconds (overrides config file) | `--keepalive 30`                        |
+| `--transport tcp|websockets` | Set the MQTT transport protocol (overrides config file)         | `--transport websockets`                |
 | `--open-config-dir` | Open the folder containing the MQTT config file and exit           | `--open-config-dir`                     |
+| `--theme THEME`    | Set the UI theme (e.g., `flatly`, `darkly`) (overrides config file) | `--theme darkly`                        |
 
-- You can combine `--host`, `--port`, and `--keepalive` to update the config file.
+- You can combine `--host`, `--port`, `--keepalive`, and `--transport` to update the config file.
 - If you use `--open-config-dir` with other options, the config is updated first, then the folder opens.
 - If you use command line options, the config is updated and the app does not launch.
 
 **Examples:**
 
 ```powershell
-# Update broker host and port
-presentation-clicker-client --host mqtt.example.com --port 1884
+# Update broker host, port, and use websockets
+presentation-clicker-client --host mqtt.example.com --port 9001 --transport websockets
 
 # Open the config folder
 presentation-clicker-client --open-config-dir

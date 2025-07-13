@@ -19,7 +19,7 @@
             "module": "presentation_clicker_client.ui_client",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/presentation_clicker_client",
-            "args": ["--open-config-dir"]
+            // "args": ["--open-config-dir"]
         },
         {
             "name": "Run Listener as Module",

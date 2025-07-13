@@ -18,10 +18,11 @@ import os
 DEFAULT_CONFIG = {
     "host": "test.mosquitto.org",
     "port": 1883,
-    "keepalive": 15
+    "keepalive": 15,
+    "transport": "tcp"  # 'tcp' or 'websockets'
 }
 
-CONFIG_FILE = "mqtt_config.json"
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'mqtt_config.json')
 
 def load_mqtt_config(config_path: str = CONFIG_FILE) -> dict:
     """
@@ -49,13 +50,14 @@ class PresentationMqttClient:
             config_path: Path to the MQTT config file.
         """
         self.config = load_mqtt_config(config_path)
+        transport = self.config.get("transport", DEFAULT_CONFIG["transport"])
         # UI callbacks (to be set by UI layer)
         self.on_connect: Callable[[], None] = lambda: None
         self.on_disconnect: Callable[[], None] = lambda: None
         self.on_publish: Callable[[str, str], None] = lambda topic, payload: None
         self.on_message: Callable[[str, str], None] = lambda topic, payload: None
 
-        self.client = mqtt.Client()
+        self.client = mqtt.Client(transport=transport)
         self.client.on_connect    = self._on_connect
         self.client.on_disconnect = self._on_disconnect
         self.client.on_message    = self._on_message
