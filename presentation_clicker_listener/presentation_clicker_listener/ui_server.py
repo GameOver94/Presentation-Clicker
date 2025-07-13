@@ -48,24 +48,29 @@ class ServerListenerApp:
         self._generate_pwd()
 
     def _set_fonts(self) -> None:
-        """Set UI and monospace fonts."""
-        self.font_ui: tuple[str, int]   = ("Segoe UI",     10)
-        self.font_mono: tuple[str, int] = ("Cascadia Code",  9)
+        """Set fonts: default, monospace for log, and icon font for icons."""
+        self.font_mono = ("Courier New", 9)
+        self.font_icon = ("Segoe MDL2 Assets", 12)
+        self.style.configure("Icon.TButton", font=self.font_icon)
 
     def _create_widgets(self) -> None:
         """Create all UI widgets."""
+        # Make Treeview headers bold
+        self.style.configure("Treeview.Heading", font=("TkDefaultFont", 10, "bold"))
+
         self.frm_top: ttk.Frame = ttk.Frame(self.root)
         self.frm_connect: ttk.LabelFrame = ttk.LabelFrame(
             self.frm_top, text="Connection",
             padding=(10,10), bootstyle="primary")
-        self.lbl_room: ttk.Label = ttk.Label(self.frm_connect, text="Room Code:", font=self.font_ui)
-        self.ent_room: ttk.Entry = ttk.Entry(self.frm_connect, font=self.font_ui, width=18)
-        self.btn_gen_room: ttk.Button = ttk.Button(self.frm_connect, text="Generate", width=8, command=self._generate_room)
-        self.btn_copy_room: ttk.Button = ttk.Button(self.frm_connect, text="Copy", width=5, command=lambda: self._copy_from_entry(self.ent_room))
-        self.lbl_pwd: ttk.Label  = ttk.Label(self.frm_connect, text="Password:", font=self.font_ui)
-        self.ent_pwd: ttk.Entry  = ttk.Entry(self.frm_connect, font=self.font_ui, width=18)
-        self.btn_gen_pwd: ttk.Button = ttk.Button(self.frm_connect, text="Generate", width=8, command=self._generate_pwd)
-        self.btn_copy_pwd: ttk.Button = ttk.Button(self.frm_connect, text="Copy", width=5, command=lambda: self._copy_from_entry(self.ent_pwd))
+        self.lbl_room: ttk.Label = ttk.Label(self.frm_connect, text="Room Code:")
+        self.ent_room: ttk.Entry = ttk.Entry(self.frm_connect, width=20)
+        misc_icons = self._get_misc_icons()
+        self.btn_gen_room: ttk.Button = ttk.Button(self.frm_connect, text=misc_icons['generate'], width=4, command=self._generate_room, style="Icon.TButton")
+        self.btn_copy_room: ttk.Button = ttk.Button(self.frm_connect, text=misc_icons['copy'], width=4, command=lambda: self._copy_from_entry(self.ent_room), style="Icon.TButton")
+        self.lbl_pwd: ttk.Label  = ttk.Label(self.frm_connect, text="Password:")
+        self.ent_pwd: ttk.Entry  = ttk.Entry(self.frm_connect, width=20)
+        self.btn_gen_pwd: ttk.Button = ttk.Button(self.frm_connect, text=misc_icons['generate'], width=4, command=self._generate_pwd, style="Icon.TButton")
+        self.btn_copy_pwd: ttk.Button = ttk.Button(self.frm_connect, text=misc_icons['copy'], width=4, command=lambda: self._copy_from_entry(self.ent_pwd), style="Icon.TButton")
         self.frm_connect_btns: ttk.Frame = ttk.Frame(self.frm_connect)
         self.btn_connect: ttk.Button = ttk.Button(
             self.frm_connect_btns, text="Connect", bootstyle="success-outline",
@@ -73,8 +78,7 @@ class ServerListenerApp:
         self.btn_disconnect: ttk.Button = ttk.Button(
             self.frm_connect_btns, text="Disconnect", bootstyle="danger-outline",
             width=15, state=tk.DISABLED, command=self.on_disconnect)
-        bold_font = (self.font_ui[0], self.font_ui[1], 'bold')
-        self.style.configure("Treeview.Heading", font=bold_font)
+        self.style.configure("Treeview.Heading")
         self.frm_users: ttk.LabelFrame = ttk.LabelFrame(
             self.frm_top, text="Connected Users",
             padding=(10,10), bootstyle="secondary")
@@ -102,9 +106,9 @@ class ServerListenerApp:
         self.btn_switch_theme: ttk.Button = ttk.Button(
             self.frm_connect,
             text=self._get_theme_icon(),
-            width=2,
+            width=3,
             command=self._switch_theme,
-            style="primary.TButton"
+            style="Icon.TButton"
         )
 
     def _layout_widgets(self) -> None:
@@ -345,13 +349,27 @@ class ServerListenerApp:
         self.root.clipboard_clear()
         self.root.clipboard_append(value)
 
-    def _get_theme_icon(self):
-        return "☀️" if self._theme_list[self._theme_index] == "flatly" else "🌛"
+    def _get_theme_icon(self) -> str:
+        """Return the icon for the current theme (☀️ for light, 🌛 for dark) using Segoe MDL2 Assets (E706 for sun, E708 for moon)."""
+        return "\uE706" if self._theme_list[self._theme_index] == "flatly" else "\uE708"
+
+    def _get_misc_icons(self):
+        """Return a dict of icons using Segoe MDL2 Assets Unicode."""
+        return {
+            'copy': "\uE8C8",      # Copy
+            'generate': "\uE72C",  # Refresh
+        }
 
     def _switch_theme(self):
         self._theme_index = (self._theme_index + 1) % len(self._theme_list)
         new_theme = self._theme_list[self._theme_index]
         self.style.theme_use(new_theme)
+        # Re-apply icon font style after theme change
+        self.style.configure("Icon.TButton", font=self.font_icon)
+        # Re-apply bold font for Treeview headers
+        self.style.configure("Treeview.Heading", font=("TkDefaultFont", 10, "bold"))
+        # Re-apply monospace font for log (if needed)
+        self.txt_log.configure(font=self.font_mono)
         self.btn_switch_theme.config(text=self._get_theme_icon())
         # Save theme to config
         if self._config_path:

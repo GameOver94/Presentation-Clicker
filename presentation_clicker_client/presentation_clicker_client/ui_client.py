@@ -49,9 +49,11 @@ class PresentationClickerApp:
         self._layout_widgets()
 
     def _set_fonts(self) -> None:
-        """Set UI and monospace fonts."""
-        self.font_ui: tuple[str, int]   = ("Segoe UI",     10)
-        self.font_mono: tuple[str, int] = ("Cascadia Code",  9)
+        """Set fonts: default, monospace for log, and icon font for icons."""
+        self.font_mono = ("Consolas, Courier New, monospace", 9)
+        self.font_icon = ("Segoe MDL2 Assets", 12)
+        # Define a custom style for icon buttons
+        self.style.configure("Icon.TButton", font=self.font_icon)
 
     def _create_widgets(self) -> None:
         """Create all UI widgets."""
@@ -66,15 +68,17 @@ class PresentationClickerApp:
             self.frm_top, text="Navigation",
             padding=(10,10), bootstyle="secondary"
         )
+        # get misc icons for buttons
+        misc_icons = self._get_misc_icons()
         # Connection inputs
-        self.lbl_name: ttk.Label = ttk.Label(self.frm_connect, text="Display Name:", font=self.font_ui)
-        self.ent_name: ttk.Entry = ttk.Entry(self.frm_connect, font=self.font_ui, width=25)
-        self.lbl_room: ttk.Label = ttk.Label(self.frm_connect, text="Room Code:",    font=self.font_ui)
-        self.ent_room: ttk.Entry = ttk.Entry(self.frm_connect, font=self.font_ui, width=15)
-        self.btn_paste_room: ttk.Button = ttk.Button(self.frm_connect, text="Paste", width=6, command=lambda: self._paste_to_entry(self.ent_room))
-        self.lbl_pwd: ttk.Label  = ttk.Label(self.frm_connect, text="Password:",     font=self.font_ui)
-        self.ent_pwd: ttk.Entry  = ttk.Entry(self.frm_connect, font=self.font_ui, width=15, show="*")
-        self.btn_paste_pwd: ttk.Button = ttk.Button(self.frm_connect, text="Paste", width=6, command=lambda: self._paste_to_entry(self.ent_pwd))
+        self.lbl_name: ttk.Label = ttk.Label(self.frm_connect, text="Display Name:")
+        self.ent_name: ttk.Entry = ttk.Entry(self.frm_connect, width=26)
+        self.lbl_room: ttk.Label = ttk.Label(self.frm_connect, text="Room Code:")
+        self.ent_room: ttk.Entry = ttk.Entry(self.frm_connect, width=15)
+        self.btn_paste_room: ttk.Button = ttk.Button(self.frm_connect, text=misc_icons['paste'], width=4, style="Icon.TButton", command=lambda: self._paste_to_entry(self.ent_room))
+        self.lbl_pwd: ttk.Label  = ttk.Label(self.frm_connect, text="Password:")
+        self.ent_pwd: ttk.Entry  = ttk.Entry(self.frm_connect, width=15, show="*")
+        self.btn_paste_pwd: ttk.Button = ttk.Button(self.frm_connect, text=misc_icons['paste'], width=4, style="Icon.TButton", command=lambda: self._paste_to_entry(self.ent_pwd))
         # Connect / Disconnect
         self.btn_connect: ttk.Button = ttk.Button(
             self.frm_connect, text="Connect", bootstyle="success-outline",
@@ -83,12 +87,12 @@ class PresentationClickerApp:
             self.frm_connect, text="Disconnect", bootstyle="danger-outline",
             width=12, state=tk.DISABLED, command=self.on_disconnect)
         # Navigation
-        nav_bs = dict(bootstyle="info", width=10, state=tk.DISABLED)
-        self.btn_prev: ttk.Button     = ttk.Button(self.frm_nav, text="◀ Prev",   command=self.on_prev,     **nav_bs)
-        self.btn_next: ttk.Button     = ttk.Button(self.frm_nav, text="Next ▶",   command=self.on_next,     **nav_bs)
-        self.btn_start: ttk.Button    = ttk.Button(self.frm_nav, text="⏺ Start",  command=self.on_start,    **nav_bs)
-        self.btn_end: ttk.Button      = ttk.Button(self.frm_nav, text="⏹ End",    command=self.on_end,      **nav_bs)
-        self.btn_blackout: ttk.Button = ttk.Button(self.frm_nav, text="🕶 Blackout", command=self.on_blackout, **nav_bs)
+        nav_bs = dict(bootstyle="info", width=4, state=tk.DISABLED, style="Icon.TButton")
+        self.btn_prev     = ttk.Button(self.frm_nav, text=misc_icons['prev'],   command=self.on_prev,     **nav_bs)
+        self.btn_next     = ttk.Button(self.frm_nav, text=misc_icons['next'],   command=self.on_next,     **nav_bs)
+        self.btn_start    = ttk.Button(self.frm_nav, text=misc_icons['start'],  command=self.on_start,    **nav_bs)
+        self.btn_end      = ttk.Button(self.frm_nav, text=misc_icons['end'],    command=self.on_end,      **nav_bs)
+        self.btn_blackout = ttk.Button(self.frm_nav, text=misc_icons['blackout'], command=self.on_blackout, **nav_bs)
         # ── Bottom frame: Log ──
         self.frm_bottom: ttk.Frame = ttk.Frame(self.root, padding=(5))
         self.frm_log: ttk.LabelFrame = ttk.LabelFrame(
@@ -100,12 +104,12 @@ class PresentationClickerApp:
             self.frm_log, orient=tk.VERTICAL, command=self.txt_log.yview)
         self.txt_log['yscrollcommand'] = self.scr_log.set
         # Add Switch Theme button with icon
-        self.btn_switch_theme: ttk.Button = ttk.Button(
+        self.btn_switch_theme = ttk.Button(
             self.frm_nav,
             text=self._get_theme_icon(),
             width=3,
             command=self._switch_theme,
-            style="primary.TButton"
+            style="Icon.TButton"
         )
 
     def _layout_widgets(self) -> None:
@@ -135,11 +139,11 @@ class PresentationClickerApp:
         # navigation frame grid
         self.frm_nav.rowconfigure(2, weight=1)
         # navigation buttons in frm_nav
-        self.btn_prev.    grid(row=0, column=0, **pad)
-        self.btn_next.    grid(row=0, column=1, **pad)
-        self.btn_start.   grid(row=0, column=2, **pad)
-        self.btn_end.     grid(row=0, column=3, **pad)
-        self.btn_blackout.grid(row=1, column=0, columnspan=4, **pad)
+        self.btn_prev.    grid(row=1, column=0, **pad)
+        self.btn_next.    grid(row=1, column=1, **pad)
+        self.btn_start.   grid(row=0, column=0, **pad)
+        self.btn_end.     grid(row=0, column=1, **pad)
+        self.btn_blackout.grid(row=0, column=2, **pad)
         # log outer frame
         self.frm_bottom.grid(row=1, column=0, sticky="nsew", **pad)
         self.frm_bottom.rowconfigure(0, weight=1)
@@ -154,8 +158,19 @@ class PresentationClickerApp:
         self.btn_switch_theme.grid(row=2, column=3, sticky="se", **pad)
 
     def _get_theme_icon(self) -> str:
-        """Return the icon for the current theme."""
-        return "☀️" if self._theme_list[self._theme_index] == "flatly" else "🌛"
+        """Return the icon for the current theme using Segoe MDL2 Assets (E706 for sun, E708 for moon)."""
+        return "\uE706" if self._theme_list[self._theme_index] == "flatly" else "\uE708"
+
+    def _get_misc_icons(self):
+        """Return a dict of navigation icons using Segoe MDL2 Assets Unicode."""
+        return {
+            'prev': "\uE100",    # Chevron Left
+            'next': "\uE101",    # Chevron Right
+            'start': "\uE768",   # Play
+            'end': "\uE71A",     # Stop
+            'blackout': "\uE890", # View
+            'paste': "\uE77F"  # Paste
+        }
 
     # ─── UI ↔ MQTT Glue ─────────────────────────────────────────────────
 
@@ -287,10 +302,14 @@ class PresentationClickerApp:
             pass
 
     def _switch_theme(self):
-        """Toggle between light and dark themes and save to config. Update icon."""
+        """Toggle between light and dark themes and save to config. Update icon and re-apply icon font style."""
         self._theme_index = (self._theme_index + 1) % len(self._theme_list)
         new_theme = self._theme_list[self._theme_index]
         self.style.theme_use(new_theme)
+        # Re-apply icon font style after theme change
+        self.style.configure("Icon.TButton", font=self.font_icon)
+        # Re-apply monospace font for log
+        self.txt_log.configure(font=self.font_mono)
         # Update button icon
         self.btn_switch_theme.config(text=self._get_theme_icon())
         # Save theme to config

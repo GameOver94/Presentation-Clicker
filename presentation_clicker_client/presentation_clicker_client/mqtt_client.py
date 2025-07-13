@@ -206,8 +206,8 @@ class PresentationMqttClient:
         try:
             decrypted = self.fernet.decrypt(msg.payload).decode()
             self.on_message(msg.topic, decrypted)
-        except (InvalidToken, Exception):
-            self.on_message(msg.topic, "[Decryption failed]")
+        except (InvalidToken, Exception) as e:
+            self.on_message(msg.topic, f"[Decryption failed: {e}]")
 
     def _on_log(self, client, userdata, level, buf):
         """
