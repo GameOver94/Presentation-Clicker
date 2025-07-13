@@ -1,8 +1,12 @@
 # Python build artifacts
 build/
 dist/
+*.spec
 *.egg-info/
 .eggs/
+
+# PyInstaller builds
+build_scripts/*.zip
 
 # Byte-compiled / cache
 __pycache__/

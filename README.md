@@ -52,7 +52,9 @@ pipx install ./presentation_clicker_client
 pipx install ./presentation_clicker_listener
 ```
 
-> **Note:** Make sure you have [pipx](https://pypa.github.io/pipx/) installed and available in your PATH.
+> **Note:** Pre-built standalone executables for Windows are available on the [GitHub Releases](https://github.com/GameOver94/Presentation-Clicker-Development/releases) page. You can download and run these without installing Python or any dependencies.
+
+> **Note:** Make sure you have [pipx](https://pypa.github.io/pipx/) installed and available in your PATH if you want to install from source.
 
 ## Usage
 
@@ -99,6 +101,36 @@ presentation-clicker-client --host mqtt.example.com --open-config-dir
 ```
 
 The same options are available for `presentation-clicker-listener`.
+
+## Building Standalone Executables (PyInstaller)
+
+You can build standalone Windows executables for both the client and server using PyInstaller. These builds do not require Python to be installed on the target machine.
+
+### Build Instructions
+
+1. **Install PyInstaller** (if not already installed):
+   ```powershell
+   pip install pyinstaller
+   ```
+
+2. **Run the Build Scripts**
+   In the `build_scripts` folder, run the provided PowerShell scripts:
+   ```powershell
+   # Build the client
+   ./build_scripts/build_client.ps1
+
+   # Build the server
+   ./build_scripts/build_server.ps1
+   ```
+   Each script will build the application and create a `.zip` file containing the executable and all required files.
+
+3. **Find the Executables**
+   The zipped build artifacts will be located in the `build_scripts` folder (e.g., `PresentationClickerClient.zip`).
+
+4. **Download from GitHub Releases**
+   Pre-built executables are also available for download from the [GitHub Releases](https://github.com/GameOver94/Presentation-Clicker-Development/releases) page. Download and extract the appropriate `.zip` file for your platform.
+
+> **Note:** The standalone executables include all dependencies. No Python installation is required to run them.
 
 ## Requirements
 - Python 3.9+
