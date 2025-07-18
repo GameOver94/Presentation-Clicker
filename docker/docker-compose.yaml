@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  mosquitto:
+    restart: unless-stopped
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto-clicker
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      presentation_clicker:
+        aliases:
+          - mosquitto
+    # Only expose ports if you want direct access; otherwise, comment out
+    # ports:
+    #   - "1883:1883"
+    #   - "9001:9001"
+
+  # Pinggy works for both mqtt and web socket connections.
+  # On the client use the port provided by pinggy.
+  pinggy:
+    restart: unless-stopped
+    image: kroniak/ssh-client:latest
+    container_name: pinggy
+    depends_on:
+      - mosquitto
+    networks:
+      presentation_clicker:
+        aliases:
+          - pinggy
+    ports:
+      - 4300:4300
+    command: ssh -p 443 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t
+      -R0:mosquitto:1883 tcp@a.pinggy.io
+
+  # Cloudflare tunnel only work http traffic without the client software running therefore it only works with the web socket
+  # You have to always use port 80 or 443 on the client eg. cludflared-url.trycloudflare.com:80
+  cloudflared:
+    restart: unless-stopped
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    command: tunnel --no-autoupdate --url http://mosquitto:9001
+    depends_on:
+      - mosquitto
+    networks:
+      presentation_clicker:
+        aliases:
+          - cloudflared
+
+networks:
+  presentation_clicker: {}

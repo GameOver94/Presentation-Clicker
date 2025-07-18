@@ -102,6 +102,36 @@ presentation-clicker-client --host mqtt.example.com --open-config-dir
 
 The same options are available for `presentation-clicker-listener`.
 
+## Running an MQTT Broker with Docker
+
+You can quickly set up a local MQTT broker using Docker and the provided `docker-compose.yaml` file.
+
+### Steps
+
+1. **Install Docker**  
+   Make sure Docker is installed on your system.
+
+2. **Start the Broker**  
+   In the project’s `docker` folder, run:
+   ```powershell
+   cd docker
+   docker compose up -d
+   ```
+   This will start a Mosquitto MQTT broker and optional tunneling services for remote access.
+
+3. **Configuration**  
+   - The broker is configured via `mosquitto.conf` in the same folder.
+   - By default, ports are not exposed. Uncomment the `ports` section in `docker-compose.yaml` if you want direct access.
+
+4. **Remote Access**  
+   - The setup includes Pinggy and Cloudflare Tunnel for exposing the broker to the internet.
+   - See comments in `docker-compose.yaml` for usage details.
+
+5. **Stop the Broker**  
+   ```powershell
+   docker compose down
+   ```
+
 ## Building Standalone Executables (PyInstaller)
 
 You can build standalone Windows executables for both the client and server using PyInstaller. These builds do not require Python to be installed on the target machine.
