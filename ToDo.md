@@ -3,7 +3,7 @@
 ## Core Improvements
 - [x] Command-line tool to configure MQTT broker
 - [x] Generate binaries with PyInstaller for easy distribution
-- [~] Add Docker container to run own MQTT broker with Cloudflare tunnel to expose to internet
+- [x] Add Docker container to run own MQTT broker with Cloudflare tunnel to expose to internet
 
 ## Suggested Features & Enhancements
 - [ ] Add support for custom MQTT topics and authentication
