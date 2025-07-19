@@ -13,9 +13,9 @@ from typing import Optional
 from ttkbootstrap import Style
 from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
 from presentation_clicker_client.mqtt_client import PresentationMqttClient
-from presentation_clicker_common.ui_common import ThemeManager, get_misc_icons
-from presentation_clicker_common.cli_common import (
-    create_common_parser, validate_args, load_theme_from_config, handle_config_operations
+from presentation_clicker_common import (
+    ThemeManager, get_misc_icons, create_common_parser, validate_args, 
+    load_theme_from_config, handle_config_operations, UILogger, get_message_colors
 )
 
 class PresentationClickerApp:
@@ -56,6 +56,11 @@ class PresentationClickerApp:
 
         # --- build UI ---
         self._create_widgets()
+        
+        # Initialize logger after widgets are created
+        self.logger = UILogger(self.txt_log, self.theme_manager)
+        self._setup_log_colors()
+        
         self._layout_widgets()
 
     def _set_fonts(self) -> None:
@@ -114,15 +119,6 @@ class PresentationClickerApp:
         self.txt_log: tk.Text = tk.Text(
             self.frm_log, font=self.font_mono, wrap="none",
             state=tk.DISABLED, bg=self.style.colors.bg, relief=tk.SOLID, height=10)
-        # Configure tags for sent/received messages after txt_log is created
-        if self._is_dark_theme():
-            sent_bg = "#2e4d36"      # dark green for sent
-            received_bg = "#233c4e"  # dark blue for received
-        else:
-            sent_bg = "#d1fad7"      # light green for sent
-            received_bg = "#d6eaff"  # light blue for received
-        self.txt_log.tag_configure("sent", background=sent_bg)
-        self.txt_log.tag_configure("received", background=received_bg)
         self.scr_log: ttk.Scrollbar = ttk.Scrollbar(
             self.frm_log, orient=tk.VERTICAL, command=self.txt_log.yview)
         self.txt_log['yscrollcommand'] = self.scr_log.set
@@ -134,6 +130,12 @@ class PresentationClickerApp:
             command=self._switch_theme,
             style="Icon.TButton"
         )
+
+    def _setup_log_colors(self):
+        """Setup log colors for sent/received messages."""
+        colors = get_message_colors(self._is_dark_theme())
+        for tag, color in colors.items():
+            self.txt_log.tag_configure(tag, background=color)
 
     def _layout_widgets(self) -> None:
         """Lay out all widgets in the UI."""
@@ -334,14 +336,7 @@ class PresentationClickerApp:
             msg: Message string.
             tag: Optional tag for message type ('sent', 'received').
         """
-        timestamp: str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.txt_log.config(state=tk.NORMAL)
-        if tag:
-            self.txt_log.insert("end", f"[{timestamp}] {msg}\n", tag)
-        else:
-            self.txt_log.insert("end", f"[{timestamp}] {msg}\n")
-        self.txt_log.see("end")
-        self.txt_log.config(state=tk.DISABLED)
+        self.logger.log(msg, tag=tag)
 
     def _paste_to_entry(self, entry: ttk.Entry) -> None:
         """
@@ -363,15 +358,9 @@ class PresentationClickerApp:
         self.style.configure("Icon.TButton", font=self.font_icon)
         # Re-apply monospace font for log
         self.txt_log.configure(font=self.font_mono)
-        # Update tag backgrounds to match new theme
-        if self._is_dark_theme():
-            sent_bg = "#2e4d36"
-            received_bg = "#233c4e"
-        else:
-            sent_bg = "#d1fad7"
-            received_bg = "#d6eaff"
-        self.txt_log.tag_configure("sent", background=sent_bg)
-        self.txt_log.tag_configure("received", background=received_bg)
+        # Update tag backgrounds to match new theme using common logging
+        colors = get_message_colors(self._is_dark_theme())
+        self.logger.update_theme_colors(colors)
         # Update button icon
         self.btn_switch_theme.config(text=self.theme_manager.get_theme_icon())
 

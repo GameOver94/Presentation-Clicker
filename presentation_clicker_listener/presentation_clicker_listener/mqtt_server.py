@@ -5,20 +5,14 @@ Handles encryption, reconnect, connection timeout, and UI callbacks.
 """
 
 import os
-import threading
-import time
-from typing import Callable, Optional
-
 import paho.mqtt.client as mqtt
-from cryptography.fernet import InvalidToken
 
-from presentation_clicker_common.mqtt_config import load_mqtt_config, DEFAULT_CONFIG
-from presentation_clicker_common.encryption import get_fernet
-from presentation_clicker_common.topics import get_base_topic
+from presentation_clicker_common import BaseMqttHandler
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'mqtt_config.yaml')
 
-class PresentationMqttServer:
+
+class PresentationMqttServer(BaseMqttHandler):
     """
     MQTT server for Presentation Clicker system.
     Handles encrypted communication, reconnect logic, and UI callbacks.
@@ -29,31 +23,7 @@ class PresentationMqttServer:
         Args:
             config_path: Path to the MQTT config file.
         """
-        self.config = load_mqtt_config(config_path)
-        transport = self.config.get("transport", DEFAULT_CONFIG["transport"])
-        self.on_connect: Callable[[], None] = lambda: None
-        self.on_disconnect: Callable[[], None] = lambda: None
-        self.on_message: Callable[[str, str], None] = lambda topic, payload: None
-        # self.on_log: Callable[[str], None] = lambda msg: None
-
-        self.client: mqtt.Client = mqtt.Client(transport=transport)
-        self.client.on_connect = self._on_connect
-        self.client.on_disconnect = self._on_disconnect
-        self.client.on_message = self._on_message
-        self.client.on_log = self._on_log
-        self._should_reconnect: bool = True
-        self._reconnect_thread: Optional[threading.Thread] = None
-        self.connected: bool = False
-        self.room: Optional[str] = None
-        self.pwd: Optional[str] = None
-        self.base_topic: Optional[str] = None
-        self.fernet = None
-
-    def _get_base_topic(self) -> str:
-        """
-        Returns the base MQTT topic for the current room.
-        """
-        return get_base_topic(self.room)
+        super().__init__(config_path)
 
     def connect(self, room: str, pwd: str, timeout: int = 5) -> None:
         """
@@ -65,78 +35,19 @@ class PresentationMqttServer:
         Raises:
             TimeoutError: If connection is not established within timeout.
         """
+        # Store connection parameters
         self.room = room
-        self.pwd = pwd
         self.base_topic = self._get_base_topic()
-        self.fernet = get_fernet(pwd)
-        host = self.config.get("host", DEFAULT_CONFIG["host"])
-        port = self.config.get("port", DEFAULT_CONFIG["port"])
-        keepalive = self.config.get("keepalive", DEFAULT_CONFIG["keepalive"])
-        self.client.connect_async(host, port, keepalive=keepalive)
-        self._should_reconnect = True
-        self.client.loop_start()
-        # Wait for connection or timeout
-        start = time.time()
-        while not self.connected and (time.time() - start) < timeout:
-            time.sleep(0.1)
-        if not self.connected:
-            self.client.loop_stop()
-            raise TimeoutError(f"MQTT connection timed out after {timeout} seconds.")
+        self._setup_encryption(pwd)
+        
+        # Connect to broker
+        self._connect_to_broker(timeout)
 
-    def disconnect(self) -> None:
+    # ─── Internal MQTT Callbacks ────────────────────────────────
+    
+    def _on_connect_handler(self, client: mqtt.Client, userdata, flags, rc) -> None:
         """
-        Disconnect from the MQTT broker and stop the client loop.
+        Server-specific connection handler.
+        Subscribes to all room topics.
         """
-        self._should_reconnect = False
-        self.client.loop_stop()
-        self.client.disconnect()
-
-    def _on_connect(self, client: mqtt.Client, userdata, flags, rc) -> None:
-        """
-        Internal callback for MQTT connect event.
-        Subscribes to room topics and triggers UI callback.
-        """
-        self.connected = True
         client.subscribe(f"{self.base_topic}/#")
-        self.on_connect()
-        # self.on_log("MQTT server connected and subscribed.")
-
-    def _on_disconnect(self, client: mqtt.Client, userdata, rc) -> None:
-        """
-        Internal callback for MQTT disconnect event.
-        Handles reconnect logic if needed.
-        """
-        self.connected = False
-        self.on_disconnect()
-        # self.on_log("MQTT server disconnected.")
-        if self._should_reconnect and rc != 0:
-            if not self._reconnect_thread or not self._reconnect_thread.is_alive():
-                self._reconnect_thread = threading.Thread(target=self._reconnect_loop, daemon=True)
-                self._reconnect_thread.start()
-
-    def _reconnect_loop(self) -> None:
-        """
-        Background thread for reconnecting to the broker.
-        """
-        while self._should_reconnect and not self.connected:
-            try:
-                self.client.reconnect()
-            except Exception:
-                time.sleep(3)
-
-    def _on_message(self, client: mqtt.Client, userdata, msg) -> None:
-        """
-        Internal callback for MQTT message event.
-        Decrypts and passes message to UI callback.
-        """
-        try:
-            decrypted = self.fernet.decrypt(msg.payload).decode()
-            self.on_message(msg.topic, decrypted)
-        except (InvalidToken, Exception) as e:
-            self.on_message(msg.topic, f"[Decryption failed: {e}]")
-
-    def _on_log(self, client: mqtt.Client, userdata, level, buf) -> None:
-        """
-        Internal callback for MQTT log events (optional, for debugging).
-        """
-        pass  # Optionally log MQTT debug info

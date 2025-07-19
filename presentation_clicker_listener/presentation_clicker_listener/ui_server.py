@@ -16,9 +16,9 @@ import keyboard
 from presentation_clicker_listener.mqtt_server import PresentationMqttServer
 from ttkbootstrap import Style
 from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
-from presentation_clicker_common.ui_common import ThemeManager, get_misc_icons
-from presentation_clicker_common.cli_common import (
-    create_common_parser, validate_args, load_theme_from_config, handle_config_operations
+from presentation_clicker_common import (
+    ThemeManager, get_misc_icons, create_common_parser, validate_args, 
+    load_theme_from_config, handle_config_operations, UILogger
 )
 
 class ServerListenerApp:
@@ -53,6 +53,11 @@ class ServerListenerApp:
         self.mqtt.on_disconnect = self._on_mqtt_disconnect
         self.mqtt.on_message    = self._on_mqtt_message
         self._create_widgets()
+        
+        # Initialize logger after widgets are created
+        self.logger = UILogger(self.txt_log, self.theme_manager)
+        self.logger.set_user_color_function(self._get_user_color)
+        
         self._layout_widgets()
         self._generate_room()
         self._generate_pwd()
@@ -375,17 +380,7 @@ class ServerListenerApp:
             msg: Message string.
             user: Username string (optional, for color).
         """
-        timestamp: str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.txt_log.config(state=tk.NORMAL)
-        if user:
-            tag_name = f"userlog_{user}"
-            user_color = self._get_user_color(user)
-            self.txt_log.tag_configure(tag_name, background=user_color)
-            self.txt_log.insert("end", f"[{timestamp}] {msg}\n", tag_name)
-        else:
-            self.txt_log.insert("end", f"[{timestamp}] {msg}\n")
-        self.txt_log.see("end")
-        self.txt_log.config(state=tk.DISABLED)
+        self.logger.log(msg, user=user)
 
     def _generate_room(self) -> None:
         """
@@ -435,12 +430,8 @@ class ServerListenerApp:
             tag_name = f"user_{user}"
             user_color = self._get_user_color(user)
             self.tree_users.tag_configure(tag_name, background=user_color)
-        # Update log tag colors for new theme - get all existing userlog tags
-        for tag_name in self.txt_log.tag_names():
-            if tag_name.startswith("userlog_"):
-                user = tag_name.replace("userlog_", "")
-                user_color = self._get_user_color(user)
-                self.txt_log.tag_configure(tag_name, background=user_color)
+        # Update log tag colors for new theme using the logger
+        self.logger.update_theme_colors()
 
     def run(self) -> None:
         """
