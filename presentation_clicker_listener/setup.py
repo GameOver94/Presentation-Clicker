@@ -9,6 +9,7 @@ setup(
         'cryptography',
         'ttkbootstrap',
         'keyboard',
+        'pyyaml',
     ],
     entry_points={
         'console_scripts': [

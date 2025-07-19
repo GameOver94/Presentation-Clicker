@@ -6,16 +6,18 @@ Provides a user interface for managing room, users, permissions, and logs.
 import argparse
 import datetime
 import json
-import keyboard
 import os
 import random
 import string
 import tkinter as tk
 from tkinter import ttk
+from typing import Optional, Any
+
+import keyboard
+import yaml
+from presentation_clicker_listener.mqtt_server import PresentationMqttServer
 from ttkbootstrap import Style
 from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
-from presentation_clicker_listener.mqtt_server import PresentationMqttServer
-from typing import Optional, Any
 
 class ServerListenerApp:
     """
@@ -375,12 +377,12 @@ class ServerListenerApp:
         if self._config_path:
             try:
                 with open(self._config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
+                    config = yaml.safe_load(f)
             except Exception:
                 config = {}
             config['theme'] = new_theme
             with open(self._config_path, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2)
+                yaml.safe_dump(config, f)
 
     def run(self) -> None:
         """
@@ -396,7 +398,7 @@ def update_mqtt_config(config_path, host=None, port=None, keepalive=None, transp
     if os.path.exists(config_path):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
+                config = yaml.safe_load(f)
         except Exception:
             pass
     changed = False
@@ -417,7 +419,7 @@ def update_mqtt_config(config_path, host=None, port=None, keepalive=None, transp
         changed = True
     if changed:
         with open(config_path, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=2)
+            yaml.safe_dump(config, f)
 
 def main():
     parser = argparse.ArgumentParser(description="Presentation Clicker Server UI")
@@ -429,7 +431,7 @@ def main():
     parser.add_argument('--theme', type=str, help='UI theme (e.g., flatly, darkly)')
     args = parser.parse_args()
 
-    config_path = os.path.join(os.path.dirname(__file__), 'mqtt_config.json')
+    config_path = os.path.join(os.path.dirname(__file__), 'mqtt_config.yaml')
     config_dir = os.path.dirname(config_path)
 
     # Load config to get theme (if present)
@@ -437,7 +439,7 @@ def main():
     if os.path.exists(config_path):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
+                config = yaml.safe_load(f)
         except Exception:
             pass
     theme = args.theme or config.get('theme', 'flatly')

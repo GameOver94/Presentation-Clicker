@@ -9,10 +9,12 @@ import json
 import os
 import tkinter as tk
 from tkinter import ttk
+from typing import Optional
+
+import yaml
 from ttkbootstrap import Style
 from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
 from presentation_clicker_client.mqtt_client import PresentationMqttClient
-from typing import Optional
 
 class PresentationClickerApp:
     """
@@ -252,9 +254,20 @@ class PresentationClickerApp:
 
     def _on_mqtt_message(self, topic: str, payload: str) -> None:
         """
-        MQTT callback: message received. Logs incoming messages.
+        MQTT callback: message received. Logs incoming messages and parses JSON payload.
         """
-        self.root.after(0, lambda: self._log(f"[RCV] {topic}: {payload}"))
+        def log_message():
+            try:
+                data = json.loads(payload)
+                user = data.get("user")
+                action = data.get("action")
+                if user and action:
+                    self._log(f"[RCV] {topic}: user={user}, action={action}")
+                else:
+                    self._log(f"[RCV] {topic}: {payload}")
+            except Exception:
+                self._log(f"[RCV] {topic}: {payload}")
+        self.root.after(0, log_message)
 
     # ─── Helpers ────────────────────────────────────────────────────────
 
@@ -316,12 +329,12 @@ class PresentationClickerApp:
         if self._config_path:
             try:
                 with open(self._config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
+                    config = yaml.safe_load(f)
             except Exception:
                 config = {}
             config['theme'] = new_theme
             with open(self._config_path, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2)
+                yaml.safe_dump(config, f)
 
     def run(self) -> None:
         """
@@ -337,7 +350,7 @@ def update_mqtt_config(config_path, host=None, port=None, keepalive=None, transp
     if os.path.exists(config_path):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
+                config = yaml.safe_load(f)
         except Exception:
             pass
     changed = False
@@ -358,7 +371,7 @@ def update_mqtt_config(config_path, host=None, port=None, keepalive=None, transp
         changed = True
     if changed:
         with open(config_path, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=2)
+            yaml.safe_dump(config, f)
 
 def main():
     parser = argparse.ArgumentParser(description="Presentation Clicker Client UI")
@@ -371,7 +384,7 @@ def main():
     args = parser.parse_args()
 
     # Fixed config file path (relative to this file)
-    config_path = os.path.join(os.path.dirname(__file__), 'mqtt_config.json')
+    config_path = os.path.join(os.path.dirname(__file__), 'mqtt_config.yaml')
     config_dir = os.path.dirname(config_path)
 
     # Load config to get theme (if present)
@@ -379,7 +392,7 @@ def main():
     if os.path.exists(config_path):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
+                config = yaml.safe_load(f)
         except Exception:
             pass
     theme = args.theme or config.get('theme', 'flatly')

@@ -8,6 +8,7 @@ setup(
         'paho-mqtt',
         'cryptography',
         'ttkbootstrap',
+        'pyyaml',
     ],
     entry_points={
         'console_scripts': [

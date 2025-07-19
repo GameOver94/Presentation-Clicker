@@ -2,3 +2,4 @@ ttkbootstrap
 paho-mqtt
 cryptography
 keyboard
+pyyaml

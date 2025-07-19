@@ -1,5 +1,7 @@
 # mock_client.py
 import time
+import threading
+
 from mqtt_client import PresentationMqttClient
 
 class MockClient:
@@ -29,7 +31,6 @@ class MockClient:
                 time.sleep(self.delay)
             print("[MockClient] Sequence complete. Disconnecting...")
             self.client.disconnect()
-        import threading
         threading.Thread(target=send_sequence, daemon=True).start()
 
     def on_disconnect(self):

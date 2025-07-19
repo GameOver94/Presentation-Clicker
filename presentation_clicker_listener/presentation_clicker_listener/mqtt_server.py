@@ -4,17 +4,18 @@ Presentation Clicker MQTT Server logic for secure, robust communication with cli
 Handles encryption, reconnect, connection timeout, and UI callbacks.
 """
 
-import json
-import paho.mqtt.client as mqtt
-from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import default_backend
 import base64
+import os
 import threading
 import time
 from typing import Callable, Optional
-import os
+
+import paho.mqtt.client as mqtt
+import yaml
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 DEFAULT_CONFIG = {
     "host": "test.mosquitto.org",
@@ -23,17 +24,17 @@ DEFAULT_CONFIG = {
     "transport": "tcp"  # 'tcp' or 'websockets'
 }
 
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'mqtt_config.json')
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'mqtt_config.yaml')
 
 def load_mqtt_config(config_path: str = CONFIG_FILE) -> dict:
     """
-    Load MQTT server configuration from a JSON file.
+    Load MQTT server configuration from a YAML file.
     Returns default config if file is missing or invalid.
     """
     if os.path.exists(config_path):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
+                config = yaml.safe_load(f)
                 return {**DEFAULT_CONFIG, **config}
         except Exception:
             pass
