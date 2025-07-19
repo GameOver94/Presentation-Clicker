@@ -3,7 +3,6 @@ mqtt_client.py
 Presentation Clicker MQTT Client logic for secure, robust communication with server via MQTT.
 Handles encryption, reconnect, connection timeout, and UI callbacks.
 """
-import base64
 import json
 import os
 import threading
@@ -11,34 +10,13 @@ import time
 from typing import Callable, Optional
 
 import paho.mqtt.client as mqtt
-import yaml
-from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.fernet import InvalidToken
 
-DEFAULT_CONFIG = {
-    "host": "test.mosquitto.org",
-    "port": 1883,
-    "keepalive": 15,
-    "transport": "tcp"  # 'tcp' or 'websockets'
-}
+from presentation_clicker_common.mqtt_config import load_mqtt_config, DEFAULT_CONFIG
+from presentation_clicker_common.encryption import get_fernet
+from presentation_clicker_common.topics import get_base_topic
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'mqtt_config.yaml')
-
-def load_mqtt_config(config_path: str = CONFIG_FILE) -> dict:
-    """
-    Load MQTT client configuration from a YAML file.
-    Returns default config if file is missing or invalid.
-    """
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-                return {**DEFAULT_CONFIG, **config}
-        except Exception:
-            pass
-    return DEFAULT_CONFIG.copy()
 
 class PresentationMqttClient:
     """
@@ -72,26 +50,7 @@ class PresentationMqttClient:
         """
         Returns the base MQTT topic for the current room.
         """
-        return f"presentationclicker/{self.room}"
-
-    def _get_fernet(self, pwd: str) -> Fernet:
-        """
-        Derives a Fernet encryption key from the password using PBKDF2HMAC.
-        Args:
-            pwd: Password string.
-        Returns:
-            Fernet: Fernet encryption object.
-        """
-        salt = b"presentationclicker_salt"  # Use a constant salt or store per-room for more security
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100_000,
-            backend=default_backend()
-        )
-        key = base64.urlsafe_b64encode(kdf.derive(pwd.encode("utf-8")))
-        return Fernet(key)
+        return get_base_topic(self.room)
 
     def connect(self, user: str, room: str, pwd: str, timeout: int = 5):
         """
@@ -114,7 +73,7 @@ class PresentationMqttClient:
         self.user = user
         self.pwd = pwd
         self.base_topic = self._get_base_topic()
-        self.fernet = self._get_fernet(pwd)
+        self.fernet = get_fernet(pwd)
         # Set Last Will on status topic (connection lost)
         will_topic = f"{self.base_topic}/status"
         will_payload = self.fernet.encrypt(json.dumps({"user": user, "status": "connection_lost"}).encode()).decode()

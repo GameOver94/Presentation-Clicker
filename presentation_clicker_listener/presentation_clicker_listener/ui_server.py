@@ -3,7 +3,6 @@ ui_server.py
 Presentation Clicker Server UI using Tkinter and ttkbootstrap.
 Provides a user interface for managing room, users, permissions, and logs.
 """
-import argparse
 import datetime
 import json
 import os
@@ -14,10 +13,13 @@ from tkinter import ttk
 from typing import Optional, Any
 
 import keyboard
-import yaml
 from presentation_clicker_listener.mqtt_server import PresentationMqttServer
 from ttkbootstrap import Style
 from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
+from presentation_clicker_common.ui_common import ThemeManager, get_misc_icons
+from presentation_clicker_common.cli_common import (
+    create_common_parser, validate_args, load_theme_from_config, handle_config_operations
+)
 
 class ServerListenerApp:
     """
@@ -31,13 +33,19 @@ class ServerListenerApp:
             mqtt_server: Optional custom MQTT server instance.
             theme: ttkbootstrap theme name.
         """
-        self._theme_list = ["flatly", "darkly"]
-        self._theme_index = self._theme_list.index(theme) if theme in self._theme_list else 0
-        self._config_path = config_path
         self.style: Style = Style(theme=theme)
         self.root: tk.Tk = self.style.master
         self.root.title("Presentation Clicker Server")
         self.root.resizable(False, True)  # Fix width, allow height resize
+        
+        # Initialize theme manager
+        self.theme_manager = ThemeManager(
+            theme_list=["flatly", "darkly"], 
+            initial_theme=theme, 
+            config_path=config_path
+        )
+        self.theme_manager.set_style(self.style)
+        
         self._set_fonts()
         self.connected_users: dict[str, Any] = {}
         self.mqtt: PresentationMqttServer = mqtt_server or PresentationMqttServer()
@@ -66,7 +74,7 @@ class ServerListenerApp:
             padding=(10,10), bootstyle="primary")
         self.lbl_room: ttk.Label = ttk.Label(self.frm_connect, text="Room Code:")
         self.ent_room: ttk.Entry = ttk.Entry(self.frm_connect, width=20)
-        misc_icons = self._get_misc_icons()
+        misc_icons = get_misc_icons()
         self.btn_gen_room: ttk.Button = ttk.Button(self.frm_connect, text=misc_icons['generate'], width=4, command=self._generate_room, style="Icon.TButton")
         self.btn_copy_room: ttk.Button = ttk.Button(self.frm_connect, text=misc_icons['copy'], width=4, command=lambda: self._copy_from_entry(self.ent_room), style="Icon.TButton")
         self.lbl_pwd: ttk.Label  = ttk.Label(self.frm_connect, text="Password:")
@@ -107,7 +115,7 @@ class ServerListenerApp:
         # Add Switch Theme button with emoji
         self.btn_switch_theme: ttk.Button = ttk.Button(
             self.frm_connect,
-            text=self._get_theme_icon(),
+            text=self.theme_manager.get_theme_icon(),
             width=3,
             command=self._switch_theme,
             style="Icon.TButton"
@@ -249,6 +257,7 @@ class ServerListenerApp:
             status = data.get("status")
             if status == "online":
                 self._update_user(user, nav=True, control=False)
+                self._log(f"User '{user}' is now online.", user=user)
             elif status == "offline":
                 if user in self.user_rows:
                     self.tree_users.delete(self.user_rows[user]["iid"])
@@ -303,12 +312,7 @@ class ServerListenerApp:
 
     def _is_dark_theme(self):
         """Detect if the current theme is dark based on the background color luminance."""
-        bg = self.style.colors.bg
-        if bg.startswith("#") and len(bg) == 7:
-            r, g, b = int(bg[1:3], 16), int(bg[3:5], 16), int(bg[5:7], 16)
-            luminance = 0.299*r + 0.587*g + 0.114*b
-            return luminance < 128
-        return False
+        return self.theme_manager.is_dark_theme()
 
     def _get_user_colors(self):
         """Return a list of 8 distinct pastel colors for users, responsive to theme."""
@@ -411,46 +415,32 @@ class ServerListenerApp:
 
     def _get_theme_icon(self) -> str:
         """Return the icon for the current theme (☀️ for light, 🌛 for dark) using Segoe MDL2 Assets (E706 for sun, E708 for moon)."""
-        return "\uE706" if self._theme_list[self._theme_index] == "flatly" else "\uE708"
+        return self.theme_manager.get_theme_icon()
 
     def _get_misc_icons(self):
         """Return a dict of icons using Segoe MDL2 Assets Unicode."""
-        return {
-            'copy': "\uE8C8",      # Copy
-            'generate': "\uE72C",  # Refresh
-        }
+        return get_misc_icons()
 
     def _switch_theme(self):
-        self._theme_index = (self._theme_index + 1) % len(self._theme_list)
-        new_theme = self._theme_list[self._theme_index]
-        self.style.theme_use(new_theme)
+        new_theme = self.theme_manager.switch_theme()
         # Re-apply icon font style after theme change
         self.style.configure("Icon.TButton", font=self.font_icon)
         # Re-apply bold font for Treeview headers
         self.style.configure("Treeview.Heading", font=("TkDefaultFont", 10, "bold"))
         # Re-apply monospace font for log (if needed)
         self.txt_log.configure(font=self.font_mono)
-        self.btn_switch_theme.config(text=self._get_theme_icon())
+        self.btn_switch_theme.config(text=self.theme_manager.get_theme_icon())
         # Update user row colors for new theme
         for user in self.user_rows:
             tag_name = f"user_{user}"
             user_color = self._get_user_color(user)
             self.tree_users.tag_configure(tag_name, background=user_color)
-        # Update log tag colors for new theme
-        for user in self.user_rows:
-            tag_name = f"userlog_{user}"
-            user_color = self._get_user_color(user)
-            self.txt_log.tag_configure(tag_name, background=user_color)
-        # Save theme to config
-        if self._config_path:
-            try:
-                with open(self._config_path, 'r', encoding='utf-8') as f:
-                    config = yaml.safe_load(f)
-            except Exception:
-                config = {}
-            config['theme'] = new_theme
-            with open(self._config_path, 'w', encoding='utf-8') as f:
-                yaml.safe_dump(config, f)
+        # Update log tag colors for new theme - get all existing userlog tags
+        for tag_name in self.txt_log.tag_names():
+            if tag_name.startswith("userlog_"):
+                user = tag_name.replace("userlog_", "")
+                user_color = self._get_user_color(user)
+                self.txt_log.tag_configure(tag_name, background=user_color)
 
     def run(self) -> None:
         """
@@ -458,93 +448,25 @@ class ServerListenerApp:
         """
         self.root.mainloop()
 
-def update_mqtt_config(config_path, host=None, port=None, keepalive=None, transport=None, theme=None):
-    """
-    Update the MQTT config file with provided values.
-    """
-    config = {}
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-        except Exception:
-            pass
-    changed = False
-    if host is not None:
-        config['host'] = host
-        changed = True
-    if port is not None:
-        config['port'] = port
-        changed = True
-    if keepalive is not None:
-        config['keepalive'] = keepalive
-        changed = True
-    if transport is not None:
-        config['transport'] = transport
-        changed = True
-    if theme is not None:
-        config['theme'] = theme
-        changed = True
-    if changed:
-        with open(config_path, 'w', encoding='utf-8') as f:
-            yaml.safe_dump(config, f)
-
 def main():
-    parser = argparse.ArgumentParser(description="Presentation Clicker Server UI")
-    parser.add_argument('--host', type=str, help='MQTT broker host')
-    parser.add_argument('--port', type=int, help='MQTT broker port (1-65535)')
-    parser.add_argument('--keepalive', type=int, help='MQTT keepalive interval (positive integer)')
-    parser.add_argument('--open-config-dir', action='store_true', help='Open the folder containing the config file and exit')
-    parser.add_argument('--transport', type=str, choices=['tcp', 'websockets'], help='MQTT transport: tcp or websockets')
-    parser.add_argument('--theme', type=str, help='UI theme (e.g., flatly, darkly)')
-    args = parser.parse_args()
-
     config_path = os.path.join(os.path.dirname(__file__), 'mqtt_config.yaml')
-    config_dir = os.path.dirname(config_path)
-
-    # Load config to get theme (if present)
-    config = {}
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-        except Exception:
-            pass
-    theme = args.theme or config.get('theme', 'flatly')
-
-    # Validate arguments
-    if args.host is not None and (not isinstance(args.host, str) or not args.host.strip()):
-        print("Error: --host must be a non-empty string.")
+    
+    # Create parser and validate arguments
+    parser = create_common_parser("Presentation Clicker Server UI")
+    args = parser.parse_args()
+    
+    if not validate_args(args):
         return
-    if args.port is not None:
-        if not (1 <= args.port <= 65535):
-            print("Error: --port must be an integer between 1 and 65535.")
-            return
-    if args.keepalive is not None:
-        if args.keepalive <= 0:
-            print("Error: --keepalive must be a positive integer.")
-            return
-    if args.transport is not None and args.transport not in ('tcp', 'websockets'):
-        print("Error: --transport must be 'tcp' or 'websockets'.")
+    
+    # Load theme from config or use provided theme
+    theme = args.theme or load_theme_from_config(config_path, "flatly")
+    
+    # Handle config operations
+    config_changed, should_exit = handle_config_operations(args, config_path, theme)
+    if should_exit:
         return
-
-    # If any config argument is provided, update config
-    config_changed = False
-    if args.host is not None or args.port is not None or args.keepalive is not None or args.transport is not None or args.theme is not None:
-        update_mqtt_config(config_path, args.host, args.port, args.keepalive, args.transport, theme=args.theme)
-        print(f"Config updated: {config_path}")
-        config_changed = True
-
-    # If --open-config-dir is provided, open the folder and exit
-    if args.open_config_dir:
-        os.startfile(config_dir)
-        return
-
-    # If config was changed, exit (do not launch app)
-    if config_changed:
-        return
-
-    # Otherwise, launch the app
+    
+    # Launch the app
     app = ServerListenerApp(theme=theme, config_path=config_path)
     app.run()
 

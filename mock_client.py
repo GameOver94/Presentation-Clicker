@@ -2,7 +2,7 @@
 import time
 import threading
 
-from mqtt_client import PresentationMqttClient
+from presentation_clicker_client.mqtt_client import PresentationMqttClient
 
 class MockClient:
     def __init__(self, user, room, pwd, sequence, delay=1.0, initial_delay=0.0):

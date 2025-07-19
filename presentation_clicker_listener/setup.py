@@ -10,6 +10,7 @@ setup(
         'ttkbootstrap',
         'keyboard',
         'pyyaml',
+        'presentation-clicker-common',
     ],
     entry_points={
         'console_scripts': [

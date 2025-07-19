@@ -6,28 +6,48 @@
     "configurations": [
 
         {
-            "name": "Python Debugger: Current File",
+            "name": "Debug Client as Module",
             "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/ui_client.py",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Run Client as Module",
-            "type": "python",
             "request": "launch",
             "module": "presentation_clicker_client.ui_client",
             "justMyCode": true,
-            "cwd": "${workspaceFolder}/presentation_clicker_client",
-            // "args": ["--open-config-dir"]
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+            // "args": ["--theme", "darkly"]
         },
         {
-            "name": "Run Listener as Module",
-            "type": "python",
+            "name": "Debug Listener as Module",
+            "type": "debugpy",
             "request": "launch",
             "module": "presentation_clicker_listener.ui_server",
             "justMyCode": true,
-            "cwd": "${workspaceFolder}/presentation_clicker_listener"
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+            // "args": ["--theme", "darkly"]
+        },
+        {
+            "name": "Debug Client Script Directly",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/presentation_clicker_client/presentation_clicker_client/ui_client.py",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Debug Listener Script Directly",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/presentation_clicker_listener/presentation_clicker_listener/ui_server.py",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
         }
     ]
 }
