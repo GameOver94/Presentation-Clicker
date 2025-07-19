@@ -253,7 +253,14 @@ class ServerListenerApp:
                 if user in self.user_rows:
                     self.tree_users.delete(self.user_rows[user]["iid"])
                     del self.user_rows[user]
-            self._log(f"User '{user}' is now {status}.")
+                self._log(f"User '{user}' is now offline.", user=user)
+            elif status == "connection_lost":
+                if user in self.user_rows:
+                    self.tree_users.delete(self.user_rows[user]["iid"])
+                    del self.user_rows[user]
+                self._log(f"User '{user}' connection lost (unexpected disconnect).", user=user)
+            else:
+                self._log(f"User '{user}' status: {status}.", user=user)
         elif topic.endswith("/presentation"):
             user = data.get("user")
             action = data.get("action")
@@ -274,9 +281,9 @@ class ServerListenerApp:
                 elif action == "blackout":
                     keyboard.send("b")
             if allowed:
-                self._log(f"Action '{action}' from '{user}' allowed and executed.")
+                self._log(f"Action '{action}' from '{user}' allowed and executed.", user=user)
             else:
-                self._log(f"Action '{action}' from '{user}' denied (insufficient permissions).")
+                self._log(f"Action '{action}' from '{user}' denied (insufficient permissions).", user=user)
 
     def _set_connected(self, is_connected: bool) -> None:
         """
@@ -294,9 +301,50 @@ class ServerListenerApp:
         self.btn_gen_pwd.config(state=btn_state)
         self._log("Connected ✅" if is_connected else "Disconnected ❌")
 
+    def _is_dark_theme(self):
+        """Detect if the current theme is dark based on the background color luminance."""
+        bg = self.style.colors.bg
+        if bg.startswith("#") and len(bg) == 7:
+            r, g, b = int(bg[1:3], 16), int(bg[3:5], 16), int(bg[5:7], 16)
+            luminance = 0.299*r + 0.587*g + 0.114*b
+            return luminance < 128
+        return False
+
+    def _get_user_colors(self):
+        """Return a list of 8 distinct pastel colors for users, responsive to theme."""
+        # Pastel colors for light theme
+        pastel_light = [
+            "#ffd6e0", # pink
+            "#ffe7c2", # peach
+            "#fffac2", # yellow
+            "#d6ffd6", # mint
+            "#c2f0ff", # blue
+            "#e0d6ff", # lavender
+            "#ffd6fa", # magenta
+            "#d6fff6"  # aqua
+        ]
+        # Darker versions for dark theme
+        pastel_dark = [
+            "#b85c6e", # dark pink
+            "#b88a4a", # dark peach
+            "#b8b04a", # dark yellow
+            "#4ab85c", # dark mint
+            "#4a8ab8", # dark blue
+            "#6e4ab8", # dark lavender
+            "#b84ab0", # dark magenta
+            "#4ab8b0"  # dark aqua
+        ]
+        return pastel_dark if self._is_dark_theme() else pastel_light
+
+    def _get_user_color(self, user):
+        """Get a distinct color for a user from the color list."""
+        colors = self._get_user_colors()
+        idx = abs(hash(user)) % len(colors)
+        return colors[idx]
+
     def _update_user(self, user: str, nav: bool = False, control: bool = False) -> None:
         """
-        Add or update a user in the treeview with permission toggles.
+        Add or update a user in the treeview with permission toggles and distinct background color.
         Args:
             user: Username string.
             nav: Navigation permission.
@@ -304,24 +352,34 @@ class ServerListenerApp:
         """
         nav_disp = '✔' if nav else '✖'
         control_disp = '✔' if control else '✖'
+        user_color = self._get_user_color(user)
+        tag_name = f"user_{user}"
+        self.tree_users.tag_configure(tag_name, background=user_color)
         if user in self.user_rows:
             iid = self.user_rows[user]["iid"]
-            self.tree_users.item(iid, values=(user, nav_disp, control_disp))
+            self.tree_users.item(iid, values=(user, nav_disp, control_disp), tags=(tag_name,))
             self.user_rows[user]["nav"] = nav
             self.user_rows[user]["control"] = control
         else:
-            iid = self.tree_users.insert('', 'end', values=(user, nav_disp, control_disp))
+            iid = self.tree_users.insert('', 'end', values=(user, nav_disp, control_disp), tags=(tag_name,))
             self.user_rows[user] = {"iid": iid, "nav": nav, "control": control}
 
-    def _log(self, msg: str) -> None:
+    def _log(self, msg: str, user: str = None) -> None:
         """
-        Append a timestamped message to the log window.
+        Append a timestamped message to the log window, with optional user color.
         Args:
             msg: Message string.
+            user: Username string (optional, for color).
         """
         timestamp: str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.txt_log.config(state=tk.NORMAL)
-        self.txt_log.insert("end", f"[{timestamp}] {msg}\n")
+        if user:
+            tag_name = f"userlog_{user}"
+            user_color = self._get_user_color(user)
+            self.txt_log.tag_configure(tag_name, background=user_color)
+            self.txt_log.insert("end", f"[{timestamp}] {msg}\n", tag_name)
+        else:
+            self.txt_log.insert("end", f"[{timestamp}] {msg}\n")
         self.txt_log.see("end")
         self.txt_log.config(state=tk.DISABLED)
 
@@ -373,6 +431,16 @@ class ServerListenerApp:
         # Re-apply monospace font for log (if needed)
         self.txt_log.configure(font=self.font_mono)
         self.btn_switch_theme.config(text=self._get_theme_icon())
+        # Update user row colors for new theme
+        for user in self.user_rows:
+            tag_name = f"user_{user}"
+            user_color = self._get_user_color(user)
+            self.tree_users.tag_configure(tag_name, background=user_color)
+        # Update log tag colors for new theme
+        for user in self.user_rows:
+            tag_name = f"userlog_{user}"
+            user_color = self._get_user_color(user)
+            self.txt_log.tag_configure(tag_name, background=user_color)
         # Save theme to config
         if self._config_path:
             try:

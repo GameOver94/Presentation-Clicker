@@ -47,24 +47,18 @@ class PresentationMqttClient:
     """
     def __init__(self, config_path: str = CONFIG_FILE):
         """
-        Initialize the MQTT client and set default callbacks.
+        Initialize the MQTT client state and set default callbacks.
         Args:
             config_path: Path to the MQTT config file.
         """
         self.config = load_mqtt_config(config_path)
-        transport = self.config.get("transport", DEFAULT_CONFIG["transport"])
         # UI callbacks (to be set by UI layer)
         self.on_connect: Callable[[], None] = lambda: None
         self.on_disconnect: Callable[[], None] = lambda: None
         self.on_publish: Callable[[str, str], None] = lambda topic, payload: None
         self.on_message: Callable[[str, str], None] = lambda topic, payload: None
-
-        self.client = mqtt.Client(transport=transport)
-        self.client.on_connect    = self._on_connect
-        self.client.on_disconnect = self._on_disconnect
-        self.client.on_message    = self._on_message
-        self.client.on_log        = self._on_log
-
+        # MQTT client will be initialized in connect()
+        self.client = None
         self._should_reconnect = True
         self._reconnect_thread: Optional[threading.Thread] = None
         self.connected = False
@@ -110,14 +104,20 @@ class PresentationMqttClient:
         Raises:
             TimeoutError: If connection is not established within timeout.
         """
+        # Reinitialize client for a clean session on manual connect
+        self.client = mqtt.Client(transport=self.config.get("transport", DEFAULT_CONFIG["transport"]))
+        self.client.on_connect    = self._on_connect
+        self.client.on_disconnect = self._on_disconnect
+        self.client.on_message    = self._on_message
+        self.client.on_log        = self._on_log
         self.room = room
         self.user = user
         self.pwd = pwd
         self.base_topic = self._get_base_topic()
         self.fernet = self._get_fernet(pwd)
-        # Set Last Will on status topic
+        # Set Last Will on status topic (connection lost)
         will_topic = f"{self.base_topic}/status"
-        will_payload = self.fernet.encrypt(json.dumps({"user": user, "status": "offline"}).encode()).decode()
+        will_payload = self.fernet.encrypt(json.dumps({"user": user, "status": "connection_lost"}).encode()).decode()
         self.client.will_set(will_topic, will_payload, qos=1, retain=True)
         # Connect to broker using config
         host = self.config.get("host", DEFAULT_CONFIG["host"])
@@ -138,9 +138,13 @@ class PresentationMqttClient:
         """
         Disconnect from the MQTT broker and stop the client loop.
         """
+        # Send offline status before disconnecting (graceful disconnect)
+        if self.connected:
+            self.publish_status("offline")
+            time.sleep(0.5)
         self._should_reconnect = False
-        self.client.loop_stop()
         self.client.disconnect()
+        #self.client.loop_stop()
 
     def publish_action(self, action: str):
         """
