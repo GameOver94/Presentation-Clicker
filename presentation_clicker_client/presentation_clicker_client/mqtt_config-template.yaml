@@ -2,5 +2,6 @@
 # Rename this file to mqtt_config.yaml and fill in your MQTT broker details.
 host: test.mosquitto.org
 port: 1883
+transport: tcp
 keepalive: 15
 theme: flatly

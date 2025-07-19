@@ -52,10 +52,19 @@ class PresentationClickerApp:
 
     def _set_fonts(self) -> None:
         """Set fonts: default, monospace for log, and icon font for icons."""
-        self.font_mono = ("Consolas, Courier New, monospace", 9)
+        self.font_mono = ("Courier New", 9)
         self.font_icon = ("Segoe MDL2 Assets", 12)
         # Define a custom style for icon buttons
         self.style.configure("Icon.TButton", font=self.font_icon)
+
+    def _is_dark_theme(self):
+        """Detect if the current theme is dark based on the background color luminance."""
+        bg = self.style.colors.bg
+        if bg.startswith("#") and len(bg) == 7:
+            r, g, b = int(bg[1:3], 16), int(bg[3:5], 16), int(bg[5:7], 16)
+            luminance = 0.299*r + 0.587*g + 0.114*b
+            return luminance < 128
+        return False
 
     def _create_widgets(self) -> None:
         """Create all UI widgets."""
@@ -102,6 +111,15 @@ class PresentationClickerApp:
         self.txt_log: tk.Text = tk.Text(
             self.frm_log, font=self.font_mono, wrap="none",
             state=tk.DISABLED, bg=self.style.colors.bg, relief=tk.SOLID, height=10)
+        # Configure tags for sent/received messages after txt_log is created
+        if self._is_dark_theme():
+            sent_bg = "#2e4d36"      # dark green for sent
+            received_bg = "#233c4e"  # dark blue for received
+        else:
+            sent_bg = "#d1fad7"      # light green for sent
+            received_bg = "#d6eaff"  # light blue for received
+        self.txt_log.tag_configure("sent", background=sent_bg)
+        self.txt_log.tag_configure("received", background=received_bg)
         self.scr_log: ttk.Scrollbar = ttk.Scrollbar(
             self.frm_log, orient=tk.VERTICAL, command=self.txt_log.yview)
         self.txt_log['yscrollcommand'] = self.scr_log.set
@@ -248,25 +266,48 @@ class PresentationClickerApp:
         
     def _on_mptt_publish(self, topic: str, payload: str) -> None:
         """
-        MQTT callback: message published. Logs outgoing messages.
+        MQTT callback: message published. Logs outgoing messages in a format similar to the server.
         """
-        self.root.after(0, lambda: self._log(f"[SENT] {topic}: {payload}"))
-
-    def _on_mqtt_message(self, topic: str, payload: str) -> None:
-        """
-        MQTT callback: message received. Logs incoming messages and parses JSON payload.
-        """
-        def log_message():
+        def log_sent():
             try:
                 data = json.loads(payload)
                 user = data.get("user")
                 action = data.get("action")
-                if user and action:
-                    self._log(f"[RCV] {topic}: user={user}, action={action}")
+                if topic.endswith("/presentation") and user and action:
+                    self._log(f"Sent action '{action}' from '{user}'.", tag="sent")
+                elif topic.endswith("/status") and user:
+                    self._log(f"Sent status update for user '{user}'.", tag="sent")
                 else:
-                    self._log(f"[RCV] {topic}: {payload}")
+                    self._log(f"Sent: {topic}: {payload}", tag="sent")
             except Exception:
-                self._log(f"[RCV] {topic}: {payload}")
+                self._log(f"Sent: {topic}: {payload}", tag="sent")
+        self.root.after(0, log_sent)
+
+    def _on_mqtt_message(self, topic: str, payload: str) -> None:
+        """
+        MQTT callback: message received. Parses JSON payload and logs user status/actions similar to the server.
+        """
+        def log_message():
+            try:
+                data = json.loads(payload)
+                if topic.endswith("/status"):
+                    user = data.get("user")
+                    status = data.get("status")
+                    if user and status:
+                        self._log(f"User '{user}' is now {status}.", tag="received")
+                    else:
+                        self._log(f"Malformed status message: {payload}", tag="received")
+                elif topic.endswith("/presentation"):
+                    user = data.get("user")
+                    action = data.get("action")
+                    if user and action:
+                        self._log(f"Action '{action}' from '{user}' received.", tag="received")
+                    else:
+                        self._log(f"Malformed action message: {payload}", tag="received")
+                else:
+                    self._log(f"[RCV] {topic}: {payload}", tag="received")
+            except Exception:
+                self._log(f"Malformed message: {payload}", tag="received")
         self.root.after(0, log_message)
 
     # ─── Helpers ────────────────────────────────────────────────────────
@@ -290,15 +331,19 @@ class PresentationClickerApp:
         self.ent_pwd.config(state=entry_state)
         self._log("Connected ✅" if is_connected else "Disconnected ❌")
 
-    def _log(self, msg: str) -> None:
+    def _log(self, msg: str, tag: str = None) -> None:
         """
-        Append a timestamped message to the log window.
+        Append a timestamped message to the log window, with optional tag for color highlighting.
         Args:
             msg: Message string.
+            tag: Optional tag for message type ('sent', 'received').
         """
         timestamp: str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.txt_log.config(state=tk.NORMAL)
-        self.txt_log.insert("end", f"[{timestamp}] {msg}\n")
+        if tag:
+            self.txt_log.insert("end", f"[{timestamp}] {msg}\n", tag)
+        else:
+            self.txt_log.insert("end", f"[{timestamp}] {msg}\n")
         self.txt_log.see("end")
         self.txt_log.config(state=tk.DISABLED)
 
@@ -323,6 +368,15 @@ class PresentationClickerApp:
         self.style.configure("Icon.TButton", font=self.font_icon)
         # Re-apply monospace font for log
         self.txt_log.configure(font=self.font_mono)
+        # Update tag backgrounds to match new theme
+        if self._is_dark_theme():
+            sent_bg = "#2e4d36"
+            received_bg = "#233c4e"
+        else:
+            sent_bg = "#d1fad7"
+            received_bg = "#d6eaff"
+        self.txt_log.tag_configure("sent", background=sent_bg)
+        self.txt_log.tag_configure("received", background=received_bg)
         # Update button icon
         self.btn_switch_theme.config(text=self._get_theme_icon())
         # Save theme to config
