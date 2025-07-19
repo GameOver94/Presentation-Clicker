@@ -13,15 +13,15 @@ from tkinter import ttk
 from typing import Optional, Any
 
 import keyboard
-from presentation_clicker_listener.mqtt_server import PresentationMqttServer
+from mqtt_server import PresentationMqttServer
 from ttkbootstrap import Style
 from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
 from presentation_clicker_common import (
-    ThemeManager, get_misc_icons, create_common_parser, validate_args, 
-    load_theme_from_config, handle_config_operations, UILogger
+    BaseApp, create_main_function, get_misc_icons, UILogger
 )
 
-class ServerListenerApp:
+
+class ServerListenerApp(BaseApp):
     """
     Presentation Clicker Server UI application.
     Handles room management, user permissions, MQTT communication, and log display.
@@ -32,26 +32,14 @@ class ServerListenerApp:
         Args:
             mqtt_server: Optional custom MQTT server instance.
             theme: ttkbootstrap theme name.
+            config_path: Path to config file for saving theme.
         """
-        self.style: Style = Style(theme=theme)
-        self.root: tk.Tk = self.style.master
-        self.root.title("Presentation Clicker Server")
-        self.root.resizable(False, True)  # Fix width, allow height resize
+        super().__init__("Presentation Clicker Server", theme, config_path)
         
-        # Initialize theme manager
-        self.theme_manager = ThemeManager(
-            theme_list=["flatly", "darkly"], 
-            initial_theme=theme, 
-            config_path=config_path
-        )
-        self.theme_manager.set_style(self.style)
-        
-        self._set_fonts()
         self.connected_users: dict[str, Any] = {}
         self.mqtt: PresentationMqttServer = mqtt_server or PresentationMqttServer()
-        self.mqtt.on_connect    = self._on_mqtt_connect
-        self.mqtt.on_disconnect = self._on_mqtt_disconnect
-        self.mqtt.on_message    = self._on_mqtt_message
+        self._setup_mqtt_callbacks()
+        
         self._create_widgets()
         
         # Initialize logger after widgets are created
@@ -62,11 +50,11 @@ class ServerListenerApp:
         self._generate_room()
         self._generate_pwd()
 
-    def _set_fonts(self) -> None:
-        """Set fonts: default, monospace for log, and icon font for icons."""
-        self.font_mono = ("Courier New", 9)
-        self.font_icon = ("Segoe MDL2 Assets", 12)
-        self.style.configure("Icon.TButton", font=self.font_icon)
+    def _setup_mqtt_callbacks(self) -> None:
+        """Setup MQTT callbacks."""
+        self.mqtt.on_connect    = self._on_mqtt_connect
+        self.mqtt.on_disconnect = self._on_mqtt_disconnect
+        self.mqtt.on_message    = self._on_mqtt_message
 
     def _create_widgets(self) -> None:
         """Create all UI widgets."""
@@ -113,68 +101,99 @@ class ServerListenerApp:
             self.frm_bottom, text="Log", padding=(10,10), bootstyle="secondary")
         self.txt_log: tk.Text = tk.Text(
             self.frm_log, font=self.font_mono, wrap="none",
-            state=tk.DISABLED, bg=self.style.colors.bg, relief=tk.SOLID, height=10)
+            state=tk.DISABLED, relief=tk.SOLID, height=10)
+        self._setup_text_widget_theme(self.txt_log)
         self.scr_log: ttk.Scrollbar = ttk.Scrollbar(
             self.frm_log, orient=tk.VERTICAL, command=self.txt_log.yview)
         self.txt_log['yscrollcommand'] = self.scr_log.set
-        # Add Switch Theme button with emoji
+        # Add Switch Theme button
         self.btn_switch_theme: ttk.Button = ttk.Button(
-            self.frm_connect,
-            text=self.theme_manager.get_theme_icon(),
-            width=3,
-            command=self._switch_theme,
-            style="Icon.TButton"
-        )
+            self.frm_connect, text=self._get_theme_icon(), width=3, 
+            style="Icon.TButton", command=self._switch_theme)
 
     def _layout_widgets(self) -> None:
         """Lay out all widgets in the UI."""
-        pad = dict(padx=5, pady=5)
-        self.root.rowconfigure(1, weight=1)
+        pad = {"padx": 5, "pady": 5}
+        
+        # ═══ ROOT WINDOW CONFIGURATION ═══
         self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(1, weight=1)
+        
+        # ═══ MAIN LAYOUT: TOP & BOTTOM FRAMES ═══
         self.frm_top.grid(row=0, column=0, sticky="ew", **pad)
+        self.frm_bottom.grid(row=1, column=0, sticky="nsew", **pad)
+        
+        # ═══ TOP FRAME CONFIGURATION ═══
+        # Configure top frame to have two equal columns (connection & users)
         self.frm_top.columnconfigure(0, weight=1)
-        self.frm_top.columnconfigure(1, weight=2)
+        self.frm_top.columnconfigure(1, weight=1)
+        
+        # Place connection and users frames side by side
         self.frm_connect.grid(row=0, column=0, sticky="nsew", **pad)
         self.frm_users.grid(row=0, column=1, sticky="nsew", **pad)
-        self.frm_connect.rowconfigure(0, weight=0)
-        self.frm_connect.rowconfigure(1, weight=0)
-        self.frm_connect.rowconfigure(2, weight=1)
-        self.frm_connect.columnconfigure(0, weight=0)
-        self.frm_connect.columnconfigure(1, weight=1)
-        self.frm_connect.columnconfigure(2, weight=0)
-        self.frm_connect.columnconfigure(3, weight=0)
+        
+        # ─── CONNECTION FRAME LAYOUT ───
+        # Configure connection frame grid (3 rows, 4 columns)
+        self.frm_connect.rowconfigure(0, weight=0)     # Room row
+        self.frm_connect.rowconfigure(1, weight=0)     # Password row
+        self.frm_connect.rowconfigure(2, weight=1)     # Buttons row (expandable)
+        self.frm_connect.columnconfigure(0, weight=0)  # Labels column
+        self.frm_connect.columnconfigure(1, weight=1)  # Entry fields column (expandable)
+        self.frm_connect.columnconfigure(2, weight=0)  # Generate buttons column
+        self.frm_connect.columnconfigure(3, weight=0)  # Copy buttons column
+        
+        # Room code row (row 0)
         self.lbl_room.grid( row=0, column=0, sticky="se", **pad)
         self.ent_room.grid( row=0, column=1, sticky="sw", **pad)
         self.btn_gen_room.grid(row=0, column=2, sticky="sw", **pad)
         self.btn_copy_room.grid(row=0, column=3, sticky="sw", **pad)
+        
+        # Password row (row 1)
         self.lbl_pwd.grid(  row=1, column=0, sticky="ne", **pad)
         self.ent_pwd.grid(  row=1, column=1, sticky="nw", **pad)
         self.btn_gen_pwd.grid(row=1, column=2, sticky="nw", **pad)
         self.btn_copy_pwd.grid(row=1, column=3, sticky="nw", **pad)
+        
+        # Connection buttons frame (row 2)
         self.frm_connect_btns.grid(row=2, column=0, columnspan=4, sticky="se")
+        
+        # Buttons within connection buttons frame
         self.btn_connect.grid(row=0, column=0, padx=5, pady=5)
         self.btn_disconnect.grid(row=0, column=1, padx=5, pady=5)
-        self.tree_users.grid(row=0, column=0, sticky="nsew")
-        self.scr_users.grid(row=0, column=1, sticky="ns")
+        
+        # Theme switch button (also in connection frame)
+        self.btn_switch_theme.grid(row=2, column=0, sticky="sw", **pad)
+        
+        # ─── USERS FRAME LAYOUT ───
+        # Configure users frame for treeview and scrollbar
         self.frm_users.rowconfigure(0, weight=1)
         self.frm_users.columnconfigure(0, weight=1)
-        self.frm_bottom.grid(row=1, column=0, sticky="nsew", **pad)
+        
+        # Place treeview and scrollbar
+        self.tree_users.grid(row=0, column=0, sticky="nsew")
+        self.scr_users.grid(row=0, column=1, sticky="ns")
+        
+        # ═══ BOTTOM FRAME LAYOUT ═══
+        # Configure bottom frame for log area
         self.frm_bottom.rowconfigure(0, weight=1)
         self.frm_bottom.columnconfigure(0, weight=1)
+        
+        # ─── LOG FRAME LAYOUT ───
+        # Place log frame in bottom area
         self.frm_log.grid(row=0, column=0, sticky="nsew")
+        
+        # Configure log frame for text widget and scrollbar
         self.frm_log.rowconfigure(0, weight=1)
         self.frm_log.columnconfigure(0, weight=1)
+        
+        # Place log text widget and scrollbar
         self.txt_log.grid(row=0, column=0, sticky="nsew")
         self.scr_log.grid(row=0, column=1, sticky="ns")
-        # Place the switch theme button in the connection frame
-        self.btn_switch_theme.grid(row=2, column=0, sticky="sw", **pad)
 
     # ─── UI ↔ MQTT Glue ─────────────────────────────────────────────────
 
     def on_connect(self) -> None:
-        """
-        Handle connect button click. Validates input and connects via MQTT.
-        """
+        """Handle connect button click. Validates input and connects via MQTT."""
         room: str = self.ent_room.get().strip()
         pwd: str = self.ent_pwd.get().strip()
         if not (room and pwd):
@@ -187,71 +206,63 @@ class ServerListenerApp:
             self._log(f"ERROR: {e}")
 
     def on_disconnect(self) -> None:
-        """
-        Handle disconnect button click. Disconnects from MQTT.
-        """
+        """Handle disconnect button click. Disconnects from MQTT."""
         self._log("Disconnecting server…")
         self.mqtt.disconnect()
 
     def on_treeview_click(self, event: Any) -> None:
-        """
-        Handle click on the user permissions treeview to toggle permissions.
-        Args:
-            event: Tkinter event object.
-        """
+        """Handle clicks on the Treeview. Toggle permissions for users."""
+        # Check if click is in a cell region
         region = self.tree_users.identify('region', event.x, event.y)
         if region != 'cell':
             return
+            
+        # Get the row and column
         rowid = self.tree_users.identify_row(event.y)
         col = self.tree_users.identify_column(event.x)
         if not rowid or col not in ('#2', '#3'):
             return
+            
+        # Get the username
         user = self.tree_users.item(rowid, 'values')[0]
         if user not in self.user_rows:
             return
-        if col == '#2':
+            
+        # Toggle the appropriate permission
+        if col == '#2':  # Navigation column
             self.user_rows[user]["nav"] = not self.user_rows[user]["nav"]
-        elif col == '#3':
+        elif col == '#3':  # Control column
             self.user_rows[user]["control"] = not self.user_rows[user]["control"]
-        self._update_user(user, self.user_rows[user]["nav"], self.user_rows[user]["control"])
+            
+        # Update the display and log the change
+        self._update_user_display(user)
         self._log(f"Permission changed for {user}: nav={self.user_rows[user]['nav']}, control={self.user_rows[user]['control']}")
 
-    def _set_title_with_server(self):
-        """
-        Set the window title to include the connected MQTT server host and port.
-        """
-        host = self.mqtt.config.get('host', 'unknown')
-        port = self.mqtt.config.get('port', 'unknown')
-        self.root.title(f"Presentation Clicker Server - MQTT: {host}:{port}")
-
+    # MQTT callbacks
     def _on_mqtt_connect(self) -> None:
-        """
-        MQTT callback: connected. Enables/disables UI elements.
-        """
-        self.root.after(0, lambda: (self._set_connected(True), self._set_title_with_server()))
+        """MQTT callback: connected. Enables/disables UI elements."""
+        def update_ui():
+            self._set_connected(True)
+            host = self.mqtt.config.get('host', 'unknown')
+            port = self.mqtt.config.get('port', 'unknown')
+            self._set_title_with_server(f"MQTT: {host}:{port}")
+            self._log("Connected ✅")
+        self.root.after(0, update_ui)
 
     def _on_mqtt_disconnect(self) -> None:
-        """
-        MQTT callback: disconnected. Enables/disables UI elements.
-        """
-        self.root.after(0, lambda: (self._set_connected(False), self.root.title("Presentation Clicker Server")))
+        """MQTT callback: disconnected. Enables/disables UI elements."""
+        def update_ui():
+            self._set_connected(False)
+            self.root.title("Presentation Clicker Server")
+            self._log("Disconnected ❌")
+        self.root.after(0, update_ui)
 
     def _on_mqtt_message(self, topic: str, payload: str) -> None:
-        """
-        MQTT callback: message received. Handles user status and actions.
-        Args:
-            topic: MQTT topic string.
-            payload: Decrypted message payload.
-        """
+        """MQTT callback: message received. Handles user status and actions."""
         self.root.after(0, lambda: self._handle_message(topic, payload))
 
     def _handle_message(self, topic: str, payload: str) -> None:
-        """
-        Handle incoming MQTT messages for user status and presentation actions.
-        Args:
-            topic: MQTT topic string.
-            payload: Decrypted message payload.
-        """
+        """Handle incoming MQTT messages for user status and presentation actions."""
         try:
             data = json.loads(payload)
         except Exception:
@@ -272,56 +283,62 @@ class ServerListenerApp:
                 if user in self.user_rows:
                     self.tree_users.delete(self.user_rows[user]["iid"])
                     del self.user_rows[user]
-                self._log(f"User '{user}' connection lost (unexpected disconnect).", user=user)
-            else:
-                self._log(f"User '{user}' status: {status}.", user=user)
+                self._log(f"User '{user}' connection lost.", user=user)
         elif topic.endswith("/presentation"):
             user = data.get("user")
             action = data.get("action")
-            perms = self.user_rows.get(user, {})
-            allowed = False
-            if action in ("next", "previous") and perms.get("nav"):
-                allowed = True
-                if action == "next":
-                    keyboard.send("right")
-                elif action == "previous":
-                    keyboard.send("left")
-            elif action in ("start", "end", "blackout") and perms.get("control"):
-                allowed = True
-                if action == "start":
-                    keyboard.send(["shift", "f5"])
-                elif action == "end":
-                    keyboard.send("esc")
-                elif action == "blackout":
-                    keyboard.send("b")
-            if allowed:
-                self._log(f"Action '{action}' from '{user}' allowed and executed.", user=user)
+            if user and action:
+                # Check user permissions before executing action
+                perms = self.user_rows.get(user, {})
+                allowed = False
+                
+                # Check navigation permissions (next, previous)
+                if action in ("next", "previous") and perms.get("nav"):
+                    allowed = True
+                    if action == "next":
+                        keyboard.send("right")
+                    elif action == "previous":
+                        keyboard.send("left")
+                        
+                # Check control permissions (start, end, blackout)
+                elif action in ("start", "end", "blackout") and perms.get("control"):
+                    allowed = True
+                    if action == "start":
+                        keyboard.send("shift+f5")
+                    elif action == "end":
+                        keyboard.send("end")
+                    elif action == "blackout":
+                        keyboard.send("b")
+                
+                # Log the result
+                if allowed:
+                    self._log(f"Action '{action}' from '{user}' allowed and executed.", user=user)
+                else:
+                    self._log(f"Action '{action}' from '{user}' denied (insufficient permissions).", user=user)
             else:
-                self._log(f"Action '{action}' from '{user}' denied (insufficient permissions).", user=user)
+                self._log(f"Malformed action message: {payload}")
 
     def _set_connected(self, is_connected: bool) -> None:
-        """
-        Enable/disable UI elements based on connection state.
-        Args:
-            is_connected: True if connected, False otherwise.
-        """
-        self.btn_disconnect.config(state=tk.NORMAL if is_connected else tk.DISABLED)
-        self.btn_connect.config(state=tk.DISABLED if is_connected else tk.NORMAL)
-        entry_state: str = tk.DISABLED if is_connected else tk.NORMAL
-        self.ent_room.config(state=entry_state)
-        self.ent_pwd.config(state=entry_state)
-        btn_state: str = tk.DISABLED if is_connected else tk.NORMAL
-        self.btn_gen_room.config(state=btn_state)
-        self.btn_gen_pwd.config(state=btn_state)
-        self._log("Connected ✅" if is_connected else "Disconnected ❌")
-
-    def _is_dark_theme(self):
-        """Detect if the current theme is dark based on the background color luminance."""
-        return self.theme_manager.is_dark_theme()
+        """Enable/disable UI elements based on connection state."""
+        state_input = tk.DISABLED if is_connected else tk.NORMAL
+        state_conn = tk.DISABLED if is_connected else tk.NORMAL
+        state_disconn = tk.NORMAL if is_connected else tk.DISABLED
+        
+        # Disable/enable input fields
+        self.ent_room.config(state=state_input)
+        self.ent_pwd.config(state=state_input)
+        
+        # Disable/enable generation and copy buttons
+        self.btn_gen_room.config(state=state_input)
+        self.btn_gen_pwd.config(state=state_input)
+        
+        # Disable/enable connection buttons
+        self.btn_connect.config(state=state_conn)
+        self.btn_disconnect.config(state=state_disconn)
 
     def _get_user_colors(self):
-        """Return a list of 8 distinct pastel colors for users, responsive to theme."""
-        # Pastel colors for light theme
+        """Return a list of distinct colors for users, responsive to theme."""
+        # Light pastel colors for light theme
         pastel_light = [
             "#ffd6e0", # pink
             "#ffe7c2", # peach
@@ -345,121 +362,75 @@ class ServerListenerApp:
         ]
         return pastel_dark if self._is_dark_theme() else pastel_light
 
-    def _get_user_color(self, user):
-        """Get a distinct color for a user from the color list."""
+    def _get_user_color(self, user: str) -> str:
+        """Get a consistent color for a user based on their name hash."""
+        if not user:
+            return "#888888"
         colors = self._get_user_colors()
-        idx = abs(hash(user)) % len(colors)
-        return colors[idx]
+        return colors[hash(user) % len(colors)]
 
-    def _update_user(self, user: str, nav: bool = False, control: bool = False) -> None:
-        """
-        Add or update a user in the treeview with permission toggles and distinct background color.
-        Args:
-            user: Username string.
-            nav: Navigation permission.
-            control: Control permission.
-        """
-        nav_disp = '✔' if nav else '✖'
-        control_disp = '✔' if control else '✖'
+    def _update_user(self, user: str, nav: bool = True, control: bool = False) -> None:
+        """Add or update a user in the connected users list with background color."""
+        if user in self.user_rows:
+            return  # User already exists
+        
+        # Create colored row with tag
+        nav_text = "✔" if nav else "✖"
+        control_text = "✔" if control else "✖"
         user_color = self._get_user_color(user)
         tag_name = f"user_{user}"
+        
+        # Configure tag with user color
         self.tree_users.tag_configure(tag_name, background=user_color)
-        if user in self.user_rows:
-            iid = self.user_rows[user]["iid"]
-            self.tree_users.item(iid, values=(user, nav_disp, control_disp), tags=(tag_name,))
-            self.user_rows[user]["nav"] = nav
-            self.user_rows[user]["control"] = control
-        else:
-            iid = self.tree_users.insert('', 'end', values=(user, nav_disp, control_disp), tags=(tag_name,))
-            self.user_rows[user] = {"iid": iid, "nav": nav, "control": control}
+        
+        # Insert row with tag
+        iid = self.tree_users.insert("", tk.END, values=(user, nav_text, control_text), tags=(tag_name,))
+        self.user_rows[user] = {"iid": iid, "nav": nav, "control": control}
 
-    def _log(self, msg: str, user: str = None) -> None:
-        """
-        Append a timestamped message to the log window, with optional user color.
-        Args:
-            msg: Message string.
-            user: Username string (optional, for color).
-        """
-        self.logger.log(msg, user=user)
+    def _update_user_display(self, user: str) -> None:
+        """Update the display for a specific user with color preservation."""
+        if user not in self.user_rows:
+            return
+        user_data = self.user_rows[user]
+        nav_text = "✔" if user_data["nav"] else "✖"
+        control_text = "✔" if user_data["control"] else "✖"
+        
+        # Preserve the tag for background color
+        tag_name = f"user_{user}"
+        self.tree_users.item(user_data["iid"], values=(user, nav_text, control_text), tags=(tag_name,))
 
     def _generate_room(self) -> None:
-        """
-        Generate a random room code and insert it into the entry.
-        """
-        code: str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        """Generate a random room code."""
+        room = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
         self.ent_room.delete(0, tk.END)
-        self.ent_room.insert(0, code)
+        self.ent_room.insert(0, room)
 
     def _generate_pwd(self) -> None:
-        """
-        Generate a random password and insert it into the entry.
-        """
-        pwd: str = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+        """Generate a random password."""
+        pwd = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
         self.ent_pwd.delete(0, tk.END)
         self.ent_pwd.insert(0, pwd)
 
     def _copy_from_entry(self, entry: ttk.Entry) -> None:
-        """
-        Copy the value from an entry widget to the clipboard.
-        Args:
-            entry: Entry widget.
-        """
-        value: str = entry.get()
+        """Copy text from an entry widget to clipboard."""
+        text = entry.get()
         self.root.clipboard_clear()
-        self.root.clipboard_append(value)
+        self.root.clipboard_append(text)
 
-    def _get_theme_icon(self) -> str:
-        """Return the icon for the current theme (☀️ for light, 🌛 for dark) using Segoe MDL2 Assets (E706 for sun, E708 for moon)."""
-        return self.theme_manager.get_theme_icon()
-
-    def _get_misc_icons(self):
-        """Return a dict of icons using Segoe MDL2 Assets Unicode."""
-        return get_misc_icons()
-
-    def _switch_theme(self):
-        new_theme = self.theme_manager.switch_theme()
-        # Re-apply icon font style after theme change
-        self.style.configure("Icon.TButton", font=self.font_icon)
-        # Re-apply bold font for Treeview headers
-        self.style.configure("Treeview.Heading", font=("TkDefaultFont", 10, "bold"))
-        # Re-apply monospace font for log (if needed)
-        self.txt_log.configure(font=self.font_mono)
-        self.btn_switch_theme.config(text=self.theme_manager.get_theme_icon())
+    def _update_theme_specific(self) -> None:
+        """Update theme-specific elements when theme changes."""
         # Update user row colors for new theme
         for user in self.user_rows:
             tag_name = f"user_{user}"
             user_color = self._get_user_color(user)
             self.tree_users.tag_configure(tag_name, background=user_color)
-        # Update log tag colors for new theme using the logger
-        self.logger.update_theme_colors()
+        
+        # Re-apply bold font for Treeview headers (may be needed after theme change)
+        self.style.configure("Treeview.Heading", font=("TkDefaultFont", 10, "bold"))
 
-    def run(self) -> None:
-        """
-        Start the Tkinter main loop.
-        """
-        self.root.mainloop()
 
-def main():
-    config_path = os.path.join(os.path.dirname(__file__), 'mqtt_config.yaml')
-    
-    # Create parser and validate arguments
-    parser = create_common_parser("Presentation Clicker Server UI")
-    args = parser.parse_args()
-    
-    if not validate_args(args):
-        return
-    
-    # Load theme from config or use provided theme
-    theme = args.theme or load_theme_from_config(config_path, "flatly")
-    
-    # Handle config operations
-    config_changed, should_exit = handle_config_operations(args, config_path, theme)
-    if should_exit:
-        return
-    
-    # Launch the app
-    app = ServerListenerApp(theme=theme, config_path=config_path)
-    app.run()
+# Create main function using the factory
+main = create_main_function("Presentation Clicker Server UI", ServerListenerApp)
 
 if __name__ == "__main__":
     main()

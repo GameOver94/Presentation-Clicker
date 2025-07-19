@@ -65,11 +65,17 @@ class UILogger:
     
     def update_theme_colors(self, color_updates: Dict[str, str] = None):
         """
-        Update log tag colors for theme changes.
+        Update log tag colors and text widget background for theme changes.
         
         Args:
             color_updates: Optional dict of tag_name -> color mappings.
         """
+        # Update text widget background to match theme
+        if self.theme_manager and hasattr(self.theme_manager, 'style'):
+            bg_color = self.theme_manager.style.colors.bg
+            fg_color = self.theme_manager.style.colors.fg
+            self.txt_log.configure(bg=bg_color, fg=fg_color)
+        
         if color_updates:
             # Update specific colors provided
             for tag_name, color in color_updates.items():

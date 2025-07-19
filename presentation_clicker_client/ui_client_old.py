@@ -1,0 +1,397 @@
+"""
+ui_client.py
+Presentation Clicker Client UI using Tkinter and ttkbootstrap.
+Provides a user interface for connecting to the server, sending navigation commands, and viewing logs.
+"""
+import datetime
+import json
+import os
+import tkinter as tk
+from tkinter import ttk
+from typing import Optional
+
+from ttkbootstrap import Style
+from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
+from mqtt_client import PresentationMqttClient
+from presentation_clicker_common import (
+    ThemeManager, get_misc_icons, create_common_parser, validate_args, 
+    load_theme_from_config, handle_config_operations, UILogger, get_message_colors
+)
+
+class PresentationClickerApp:
+    """
+    Presentation Clicker Client UI application.
+    Handles user input, MQTT communication, and log display.
+    """
+    def __init__(self, mqtt_client: Optional[PresentationMqttClient] = None, theme: str = "flatly", config_path: str = None) -> None:
+        """
+        Initialize the UI, MQTT client, and callbacks.
+        Args:
+            mqtt_client: Optional custom MQTT client instance.
+            theme: ttkbootstrap theme name.
+            config_path: Path to config file for saving theme.
+        """
+        # --- Theming & root ---
+        self.style: Style = Style(theme=theme)
+        self.root: tk.Tk = self.style.master
+        self.root.title("Presentation Clicker")
+        self.root.resizable(False, True)  # Fix width, allow height resize
+        
+        # Initialize theme manager
+        self.theme_manager = ThemeManager(
+            theme_list=["flatly", "darkly"], 
+            initial_theme=theme, 
+            config_path=config_path
+        )
+        self.theme_manager.set_style(self.style)
+        
+        self._set_fonts()
+
+        # --- MQTT setup & callbacks ---
+        self.mqtt: PresentationMqttClient = mqtt_client or PresentationMqttClient()
+        self.mqtt.on_connect    = self._on_mqtt_connect
+        self.mqtt.on_disconnect = self._on_mqtt_disconnect
+        self.mqtt.on_publish    = self._on_mptt_publish
+        self.mqtt.on_message    = self._on_mqtt_message
+
+        # --- build UI ---
+        self._create_widgets()
+        
+        # Initialize logger after widgets are created
+        self.logger = UILogger(self.txt_log, self.theme_manager)
+        self._setup_log_colors()
+        
+        self._layout_widgets()
+
+    def _set_fonts(self) -> None:
+        """Set fonts: default, monospace for log, and icon font for icons."""
+        self.font_mono = ("Courier New", 9)
+        self.font_icon = ("Segoe MDL2 Assets", 12)
+        # Define a custom style for icon buttons
+        self.style.configure("Icon.TButton", font=self.font_icon)
+
+    def _is_dark_theme(self):
+        """Detect if the current theme is dark based on the background color luminance."""
+        return self.theme_manager.is_dark_theme()
+
+    def _create_widgets(self) -> None:
+        """Create all UI widgets."""
+        # -- Top frame: contains Connection & Navigation --
+        self.frm_top: ttk.Frame = ttk.Frame(self.root)
+        # ── Top left frame: Connection ──
+        self.frm_connect: ttk.LabelFrame = ttk.LabelFrame(
+            self.frm_top, text="Connection",
+            padding=(10,10), bootstyle="primary")
+        # -- Top right frame: Navigation --
+        self.frm_nav: ttk.LabelFrame = ttk.LabelFrame(
+            self.frm_top, text="Navigation",
+            padding=(10,10), bootstyle="secondary"
+        )
+        # get misc icons for buttons
+        misc_icons = get_misc_icons()
+        # Connection inputs
+        self.lbl_name: ttk.Label = ttk.Label(self.frm_connect, text="Display Name:")
+        self.ent_name: ttk.Entry = ttk.Entry(self.frm_connect, width=26)
+        self.lbl_room: ttk.Label = ttk.Label(self.frm_connect, text="Room Code:")
+        self.ent_room: ttk.Entry = ttk.Entry(self.frm_connect, width=15)
+        self.btn_paste_room: ttk.Button = ttk.Button(self.frm_connect, text=misc_icons['paste'], width=4, style="Icon.TButton", command=lambda: self._paste_to_entry(self.ent_room))
+        self.lbl_pwd: ttk.Label  = ttk.Label(self.frm_connect, text="Password:")
+        self.ent_pwd: ttk.Entry  = ttk.Entry(self.frm_connect, width=15, show="*")
+        self.btn_paste_pwd: ttk.Button = ttk.Button(self.frm_connect, text=misc_icons['paste'], width=4, style="Icon.TButton", command=lambda: self._paste_to_entry(self.ent_pwd))
+        # Connect / Disconnect
+        self.btn_connect: ttk.Button = ttk.Button(
+            self.frm_connect, text="Connect", bootstyle="success-outline",
+            width=12, command=self.on_connect)
+        self.btn_disconnect: ttk.Button = ttk.Button(
+            self.frm_connect, text="Disconnect", bootstyle="danger-outline",
+            width=12, state=tk.DISABLED, command=self.on_disconnect)
+        # Navigation
+        nav_bs = dict(bootstyle="info", width=4, state=tk.DISABLED, style="Icon.TButton")
+        self.btn_prev     = ttk.Button(self.frm_nav, text=misc_icons['prev'],   command=self.on_prev,     **nav_bs)
+        self.btn_next     = ttk.Button(self.frm_nav, text=misc_icons['next'],   command=self.on_next,     **nav_bs)
+        self.btn_start    = ttk.Button(self.frm_nav, text=misc_icons['start'],  command=self.on_start,    **nav_bs)
+        self.btn_end      = ttk.Button(self.frm_nav, text=misc_icons['end'],    command=self.on_end,      **nav_bs)
+        self.btn_blackout = ttk.Button(self.frm_nav, text=misc_icons['blackout'], command=self.on_blackout, **nav_bs)
+        # ── Bottom frame: Log ──
+        self.frm_bottom: ttk.Frame = ttk.Frame(self.root, padding=(5))
+        self.frm_log: ttk.LabelFrame = ttk.LabelFrame(
+            self.frm_bottom, text="Log", padding=(10,10), bootstyle="secondary")
+        self.txt_log: tk.Text = tk.Text(
+            self.frm_log, font=self.font_mono, wrap="none",
+            state=tk.DISABLED, bg=self.style.colors.bg, relief=tk.SOLID, height=10)
+        self.scr_log: ttk.Scrollbar = ttk.Scrollbar(
+            self.frm_log, orient=tk.VERTICAL, command=self.txt_log.yview)
+        self.txt_log['yscrollcommand'] = self.scr_log.set
+        # Add Switch Theme button with icon
+        self.btn_switch_theme = ttk.Button(
+            self.frm_nav,
+            text=self.theme_manager.get_theme_icon(),
+            width=3,
+            command=self._switch_theme,
+            style="Icon.TButton"
+        )
+
+    def _setup_log_colors(self):
+        """Setup log colors for sent/received messages."""
+        colors = get_message_colors(self._is_dark_theme())
+        for tag, color in colors.items():
+            self.txt_log.tag_configure(tag, background=color)
+
+    def _layout_widgets(self) -> None:
+        """Lay out all widgets in the UI."""
+        pad = dict(padx=5, pady=5)
+        # root grid
+        self.root.rowconfigure(1, weight=1)
+        self.root.columnconfigure(0, weight=1)
+        # top frame
+        self.frm_top.grid(row=0, column=0, sticky="ew", **pad)
+        self.frm_top.columnconfigure(0, weight=1)
+        self.frm_top.columnconfigure(1, weight=1)
+        # connection and navigation frames side by side
+        self.frm_connect.grid(row=0, column=0, sticky="nsew", **pad)
+        self.frm_nav.grid(row=0, column=1, sticky="nsew", **pad)
+        # connection fields
+        self.lbl_name.grid( row=0, column=0, sticky="e", **pad)
+        self.ent_name.grid( row=0, column=1, columnspan=2, sticky="w", **pad)
+        self.lbl_room.grid( row=1, column=0, sticky="e", **pad)
+        self.ent_room.grid( row=1, column=1, sticky="w", **pad)
+        self.btn_paste_room.grid(row=1, column=2, sticky="w", **pad)
+        self.lbl_pwd.grid(  row=2, column=0, sticky="e", **pad)
+        self.ent_pwd.grid(  row=2, column=1, sticky="w", **pad)
+        self.btn_paste_pwd.grid(row=2, column=2, sticky="w", **pad)
+        self.btn_connect.grid(    row=1, column=3, **pad)
+        self.btn_disconnect.grid( row=2, column=3, **pad)
+        # navigation frame grid
+        self.frm_nav.rowconfigure(2, weight=1)
+        # navigation buttons in frm_nav
+        self.btn_prev.    grid(row=1, column=0, **pad)
+        self.btn_next.    grid(row=1, column=1, **pad)
+        self.btn_start.   grid(row=0, column=0, **pad)
+        self.btn_end.     grid(row=0, column=1, **pad)
+        self.btn_blackout.grid(row=0, column=2, **pad)
+        # log outer frame
+        self.frm_bottom.grid(row=1, column=0, sticky="nsew", **pad)
+        self.frm_bottom.rowconfigure(0, weight=1)
+        self.frm_bottom.columnconfigure(0, weight=1)
+        # log frame inside outer
+        self.frm_log.grid(row=0, column=0, sticky="nsew")
+        self.frm_log.rowconfigure(0, weight=1)
+        self.frm_log.columnconfigure(0, weight=1)
+        self.txt_log.grid(row=0, column=0, sticky="nsew")
+        self.scr_log.grid(row=0, column=1, sticky="ns")
+        # Switch theme button
+        self.btn_switch_theme.grid(row=2, column=3, sticky="se", **pad)
+
+    def _get_theme_icon(self) -> str:
+        """Return the icon for the current theme using Segoe MDL2 Assets (E706 for sun, E708 for moon)."""
+        return self.theme_manager.get_theme_icon()
+
+    def _get_misc_icons(self):
+        """Return a dict of navigation icons using Segoe MDL2 Assets Unicode."""
+        return get_misc_icons()
+
+    # ─── UI ↔ MQTT Glue ─────────────────────────────────────────────────
+
+    def on_connect(self) -> None:
+        """
+        Handle connect button click. Validates input and connects via MQTT.
+        """
+        user: str = self.ent_name.get().strip()
+        room: str = self.ent_room.get().strip()
+        pwd: str  = self.ent_pwd.get().strip()
+        if not (user and room and pwd):
+            self._log("ERROR: All fields required.")
+            return
+        self._log(f"Connecting as '{user}'…")
+        try:
+            self.mqtt.connect(user, room, pwd)
+        except TimeoutError as e:
+            self._log(f"ERROR: {e}")
+
+    def on_disconnect(self) -> None:
+        """
+        Handle disconnect button click. Disconnects from MQTT.
+        """
+        self._log("Disconnecting…")
+        self.mqtt.disconnect()
+
+    def on_prev(self) -> None:
+        """
+        Send 'previous' action to server.
+        """
+        self.mqtt.publish_action("previous")
+    def on_next(self) -> None:
+        """
+        Send 'next' action to server.
+        """
+        self.mqtt.publish_action("next")
+    def on_start(self) -> None:
+        """
+        Send 'start' action to server.
+        """
+        self.mqtt.publish_action("start")
+    def on_end(self) -> None:
+        """
+        Send 'end' action to server.
+        """
+        self.mqtt.publish_action("end")
+    def on_blackout(self) -> None:
+        """
+        Send 'blackout' action to server.
+        """
+        self.mqtt.publish_action("blackout")
+
+    # MQTT client callbacks
+    def _set_title_with_server(self):
+        """
+        Set the window title to include the connected MQTT server host and port.
+        """
+        host = self.mqtt.config.get('host', 'unknown')
+        port = self.mqtt.config.get('port', 'unknown')
+        self.root.title(f"Presentation Clicker - MQTT: {host}:{port}")
+
+    def _on_mqtt_connect(self) -> None:
+        """
+        MQTT callback: connected. Enables navigation and disables input fields.
+        """
+        self.root.after(0, lambda: (self._set_connected(True), self._set_title_with_server()))
+
+    def _on_mqtt_disconnect(self) -> None:
+        """
+        MQTT callback: disconnected. Disables navigation and enables input fields.
+        """
+        self.root.after(0, lambda: (self._set_connected(False), self.root.title("Presentation Clicker")))
+        
+    def _on_mptt_publish(self, topic: str, payload: str) -> None:
+        """
+        MQTT callback: message published. Logs outgoing messages in a format similar to the server.
+        """
+        def log_sent():
+            try:
+                data = json.loads(payload)
+                user = data.get("user")
+                action = data.get("action")
+                if topic.endswith("/presentation") and user and action:
+                    self._log(f"Sent action '{action}' from '{user}'.", tag="sent")
+                elif topic.endswith("/status") and user:
+                    self._log(f"Sent status update for user '{user}'.", tag="sent")
+                else:
+                    self._log(f"Sent: {topic}: {payload}", tag="sent")
+            except Exception:
+                self._log(f"Sent: {topic}: {payload}", tag="sent")
+        self.root.after(0, log_sent)
+
+    def _on_mqtt_message(self, topic: str, payload: str) -> None:
+        """
+        MQTT callback: message received. Parses JSON payload and logs user status/actions similar to the server.
+        """
+        def log_message():
+            try:
+                data = json.loads(payload)
+                if topic.endswith("/status"):
+                    user = data.get("user")
+                    status = data.get("status")
+                    if user and status:
+                        self._log(f"User '{user}' is now {status}.", tag="received")
+                    else:
+                        self._log(f"Malformed status message: {payload}", tag="received")
+                elif topic.endswith("/presentation"):
+                    user = data.get("user")
+                    action = data.get("action")
+                    if user and action:
+                        self._log(f"Action '{action}' from '{user}' received.", tag="received")
+                    else:
+                        self._log(f"Malformed action message: {payload}", tag="received")
+                else:
+                    self._log(f"[RCV] {topic}: {payload}", tag="received")
+            except Exception:
+                self._log(f"Malformed message: {payload}", tag="received")
+        self.root.after(0, log_message)
+
+    # ─── Helpers ────────────────────────────────────────────────────────
+
+    def _set_connected(self, is_connected: bool) -> None:
+        """
+        Enable/disable navigation and input fields based on connection state.
+        Args:
+            is_connected: True if connected, False otherwise.
+        """
+        state: str = tk.NORMAL if is_connected else tk.DISABLED
+        for btn in (self.btn_prev, self.btn_next,
+                    self.btn_start, self.btn_end,
+                    self.btn_blackout):
+            btn.config(state=state)
+        self.btn_disconnect.config(state=state)
+        self.btn_connect.config(state=tk.DISABLED if is_connected else tk.NORMAL)
+        entry_state: str = tk.DISABLED if is_connected else tk.NORMAL
+        self.ent_name.config(state=entry_state)
+        self.ent_room.config(state=entry_state)
+        self.ent_pwd.config(state=entry_state)
+        self._log("Connected ✅" if is_connected else "Disconnected ❌")
+
+    def _log(self, msg: str, tag: str = None) -> None:
+        """
+        Append a timestamped message to the log window, with optional tag for color highlighting.
+        Args:
+            msg: Message string.
+            tag: Optional tag for message type ('sent', 'received').
+        """
+        self.logger.log(msg, tag=tag)
+
+    def _paste_to_entry(self, entry: ttk.Entry) -> None:
+        """
+        Paste clipboard contents into a given entry widget.
+        Args:
+            entry: Entry widget.
+        """
+        try:
+            entry.delete(0, tk.END)
+            entry.insert(0, self.root.clipboard_get())
+        except tk.TclError:
+            pass
+
+    def _switch_theme(self):
+        """Toggle between light and dark themes and save to config. Update icon and re-apply icon font style."""
+        new_theme = self.theme_manager.switch_theme()
+        
+        # Re-apply icon font style after theme change
+        self.style.configure("Icon.TButton", font=self.font_icon)
+        # Re-apply monospace font for log
+        self.txt_log.configure(font=self.font_mono)
+        # Update tag backgrounds to match new theme using common logging
+        colors = get_message_colors(self._is_dark_theme())
+        self.logger.update_theme_colors(colors)
+        # Update button icon
+        self.btn_switch_theme.config(text=self.theme_manager.get_theme_icon())
+
+    def run(self) -> None:
+        """
+        Start the Tkinter main loop.
+        """
+        self.root.mainloop()
+
+def main():
+    # Fixed config file path (relative to this file)
+    config_path = os.path.join(os.path.dirname(__file__), 'mqtt_config.yaml')
+    
+    # Create parser and validate arguments
+    parser = create_common_parser("Presentation Clicker Client UI")
+    args = parser.parse_args()
+    
+    if not validate_args(args):
+        return
+    
+    # Load theme from config or use provided theme
+    theme = args.theme or load_theme_from_config(config_path, "flatly")
+    
+    # Handle config operations
+    config_changed, should_exit = handle_config_operations(args, config_path, theme)
+    if should_exit:
+        return
+    
+    # Launch the app
+    app = PresentationClickerApp(theme=theme, config_path=config_path)
+    app.run()
+
+if __name__ == "__main__":
+    main()

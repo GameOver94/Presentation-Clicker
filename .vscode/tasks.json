@@ -5,8 +5,11 @@
             "label": "Run Client as Module",
             "type": "shell",
             "command": "python",
-            "args": ["-m", "presentation_clicker_client.ui_client"],
+            "args": ["-m", "ui_client"],
             "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}/presentation_clicker_client"
+            },
             "presentation": {
                 "reveal": "always"
             },
@@ -16,8 +19,11 @@
             "label": "Run Listener as Module",
             "type": "shell",
             "command": "python",
-            "args": ["-m", "presentation_clicker_listener.ui_server"],
+            "args": ["-m", "ui_server"],
             "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}/presentation_clicker_listener"
+            },
             "presentation": {
                 "reveal": "always"
             },

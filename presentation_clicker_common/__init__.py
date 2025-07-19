@@ -13,6 +13,7 @@ from .cli_common import create_common_parser, validate_args, load_theme_from_con
 from .topics import get_base_topic
 from .logging_common import UILogger, get_message_colors
 from .mqtt_base import BaseMqttHandler
+from .ui_base import BaseApp, create_main_function
 
 # Make all imports available at package level
 __all__ = [
@@ -29,5 +30,7 @@ __all__ = [
     'get_base_topic',
     'UILogger',
     'get_message_colors',
-    'BaseMqttHandler'
+    'BaseMqttHandler',
+    'BaseApp',
+    'create_main_function'
 ]

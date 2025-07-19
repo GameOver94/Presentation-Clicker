@@ -1,9 +1,9 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name='presentation-clicker-listener',
     version='0.1.0',
-    packages=find_packages(),
+    py_modules=['mqtt_server', 'ui_server'],
     install_requires=[
         'paho-mqtt',
         'cryptography',
@@ -14,7 +14,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'presentation-clicker-listener=presentation_clicker_listener.ui_server:main',
+            'presentation-clicker-listener=ui_server:main',
         ],
     },
     author='Patrick Harrer',
