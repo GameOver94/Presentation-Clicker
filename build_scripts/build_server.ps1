@@ -9,6 +9,7 @@ pyinstaller --noconsole --name PresentationClickerServer `
   --hidden-import "presentation_clicker.server" `
   --hidden-import "presentation_clicker.common" `
   --noconfirm `
+  --noupx `
   .\build_server_cli.py
 
 # Compress the entire build output folder to a zip file and copy to build_scripts

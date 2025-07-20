@@ -9,6 +9,7 @@ pyinstaller --noconsole --name PresentationClickerClient `
   --hidden-import "presentation_clicker.client" `
   --hidden-import "presentation_clicker.common" `
   --noconfirm `
+  --noupx `
   .\build_client_cli.py
 
 # Compress the entire build output folder to a zip file and copy to build_scripts
