@@ -1,10 +1,10 @@
 # Presentation Clicker
 
-A cross-platform, secure, and user-friendly remote presentation control system. This project enables users to control presentation slides from any device over a network using MQTT, with a graphical interface for both presenters (Listener) and remote controllers (Client).
+A cross-platform and user-friendly remote presentation control system. This project enables users to control presentation slides from any device over a network using MQTT, with a graphical interface for both presenters (Listener) and remote controllers (Client).
 
 ## Purpose
 
-Presentation Clicker is designed to make remote presentation control seamless, secure, and intuitive. It is especially useful for online conferences, meetings, and town halls where multiple presenters need to control a centrally hosted presentation. With this tool, presenters can advance their own slides without needing to ask someone else to do it — eliminating the need for the "Next slide, please." The system ensures ease of use for all participants.
+Presentation Clicker is designed to make remote presentation control seamless, and intuitive. It is especially useful for online conferences, meetings, and town halls where multiple presenters need to control a centrally hosted presentation. With this tool, presenters can advance their own slides without needing to ask someone else to do it — eliminating the need for the "Next slide, please." The system ensures ease of use for all participants.
 
 ## What's New in v0.3.0
 
@@ -14,7 +14,6 @@ Version 0.3.0 introduces a major architecture refactoring with a unified package
 - **Simplified CLI:** Single entry point with subcommands (`presentation-clicker client` and `presentation-clicker server`)
 - **Improved Packaging:** Full compatibility with `pipx` and simplified `PyInstaller` builds
 - **Developer Experience:** Easier navigation, consistent imports, and cleaner project organization
-- **Build Process:** Dramatically simplified build scripts without complex dependency configurations
 
 The functionality remains the same, but the codebase is now significantly more maintainable and follows Python packaging best practices.
 
@@ -122,7 +121,7 @@ Both the client and listener support the following command line arguments for ad
 | `--host HOST`       | Set the MQTT broker host (overrides config file)                   | `--host mqtt.example.com`               |
 | `--port PORT`       | Set the MQTT broker port (overrides config file)                   | `--port 1883`                           |
 | `--keepalive SEC`   | Set the MQTT keepalive interval in seconds (overrides config file) | `--keepalive 30`                        |
-| `--transport tcp|websockets` | Set the MQTT transport protocol (overrides config file)         | `--transport websockets`                |
+| `--transport tcp/websockets` | Set the MQTT transport protocol (overrides config file)         | `--transport websockets`                |
 | `--open-config-dir` | Open the folder containing the MQTT config file and exit           | `--open-config-dir`                     |
 | `--theme THEME`    | Set the UI theme (e.g., `flatly`, `darkly`) (overrides config file) | `--theme darkly`                        |
 
