@@ -8,14 +8,15 @@ Presentation Clicker is designed to make remote presentation control seamless, s
 
 ## What's New in v0.3.0
 
-Version 0.3.0 introduces a major code refactoring with a simplified, flat folder structure across all modules. This update improves:
+Version 0.3.0 introduces a major architecture refactoring with a unified package structure and streamlined CLI. This update improves:
 
-- **Developer Experience:** Easier navigation and simplified imports
-- **Code Maintainability:** Consistent structure across client, server, and common modules  
-- **Build Process:** Streamlined build scripts and configuration files
-- **Project Organization:** All module files are now at the root level of each package
+- **Unified Package Structure:** All components are now organized under a single `presentation_clicker` package with `client`, `server`, and `common` submodules
+- **Simplified CLI:** Single entry point with subcommands (`presentation-clicker client` and `presentation-clicker server`)
+- **Improved Packaging:** Full compatibility with `pipx` and simplified `PyInstaller` builds
+- **Developer Experience:** Easier navigation, consistent imports, and cleaner project organization
+- **Build Process:** Dramatically simplified build scripts without complex dependency configurations
 
-The functionality remains the same, but the codebase is now cleaner and more maintainable for future development.
+The functionality remains the same, but the codebase is now significantly more maintainable and follows Python packaging best practices.
 
 ## Components
 
@@ -51,56 +52,27 @@ git clone https://github.com/GameOver94/Presentation-Clicker-Development.git
 cd Presentation-Clicker-Development
 ```
 
-### 2. Install Dependencies and Modules
+### 2. Install the Package
 
-Install all modules in development mode:
+The project is now organized as a single unified package. Install it in development mode:
 
 ```powershell
-# Install the common module (required by both client and server)
-cd presentation_clicker_common
+# Install the presentation clicker package
 pip install -e .
-cd ..
-
-# Install the client module
-cd presentation_clicker_client
-pip install -e .
-cd ..
-
-# Install the server module
-cd presentation_clicker_listener
-pip install -e .
-cd ..
 ```
+
+This will install the `presentation-clicker` command-line tool with both client and server functionality.
 
 ### 3. Alternative: Install with pipx
 
-For isolated installations with pipx, you have two options:
-
-#### Option A: Install with Dependencies (Recommended)
-```powershell
-# Install client with common library as dependency
-pipx install ./presentation_clicker_client --include-deps
-
-# Install listener with common library as dependency  
-pipx install ./presentation_clicker_listener --include-deps
-```
-
-#### Option B: Manual Dependency Installation
-If the above doesn't work, install the common library first, then inject it:
+For isolated installations, you can now easily use pipx:
 
 ```powershell
-# Install the client or listener first
-pipx install ./presentation_clicker_client
-
-# Then inject the common library into the same environment
-pipx inject presentation-clicker-client ./presentation_clicker_common
-
-# For the listener:
-pipx install ./presentation_clicker_listener
-pipx inject presentation-clicker-listener ./presentation_clicker_common
+# Install the unified package with pipx
+pipx install .
 ```
 
-> **Note:** pipx has limited support for local package dependencies. If you encounter issues, use the development installation method instead.
+This will install the `presentation-clicker` command in an isolated environment.
 
 > **Note:** Pre-built standalone executables for Windows are available on the [GitHub Releases](https://github.com/GameOver94/Presentation-Clicker-Development/releases) page. You can download and run these without installing Python or any dependencies.
 
@@ -110,25 +82,36 @@ pipx inject presentation-clicker-listener ./presentation_clicker_common
 
 ### Run the Client
 ```powershell
-presentation-clicker-client
-```
-Or run directly from the module:
-```powershell
-cd presentation_clicker_client
-python -m ui_client
+presentation-clicker client
 ```
 
-### Run the Listener
+### Run the Server
 ```powershell
-presentation-clicker-listener
-```
-Or run directly from the module:
-```powershell
-cd presentation_clicker_listener
-python -m ui_server
+presentation-clicker server
 ```
 
-Both commands will launch a graphical interface. Follow the on-screen instructions to connect and control your presentation.
+### Alternative: Run directly from Python
+```powershell
+# Run the client
+python -m presentation_clicker.cli client
+
+# Run the server  
+python -m presentation_clicker.cli server
+```
+
+All commands will launch a graphical interface. Follow the on-screen instructions to connect and control your presentation.
+
+### Get Help
+```powershell
+# General help
+presentation-clicker --help
+
+# Client-specific help
+presentation-clicker client --help
+
+# Server-specific help
+presentation-clicker server --help
+```
 
 ## Command Line Options (Advanced)
 
@@ -150,17 +133,18 @@ Both the client and listener support the following command line arguments for ad
 **Examples:**
 
 ```powershell
-# Update broker host, port, and use websockets
-presentation-clicker-client --host mqtt.example.com --port 9001 --transport websockets
+# Update broker host, port, and use websockets for client
+presentation-clicker client --host mqtt.example.com --port 9001 --transport websockets
 
-# Open the config folder
-presentation-clicker-client --open-config-dir
+# Open the config folder for server
+presentation-clicker server --open-config-dir
 
-# Update config and open the folder
-presentation-clicker-client --host mqtt.example.com --open-config-dir
+# Update config and open the folder for client
+presentation-clicker client --host mqtt.example.com --open-config-dir
+
+# Launch server with dark theme
+presentation-clicker server --theme darkly
 ```
-
-The same options are available for `presentation-clicker-listener`.
 
 ## Running an MQTT Broker with Docker
 
@@ -224,12 +208,13 @@ You can build standalone Windows executables for both the client and server usin
 4. **Download from GitHub Releases**
    Pre-built executables are also available for download from the [GitHub Releases](https://github.com/GameOver94/Presentation-Clicker-Development/releases) page. Download and extract the appropriate `.zip` file for your platform.
 
-> **Note:** The build scripts have been updated for v0.3.0 to work with the new folder structure. The standalone executables include all dependencies and no Python installation is required to run them.
-
 ## Requirements
 - Python 3.9+
-- pipx
 - MQTT broker (default: test.mosquitto.org)
+
+Optional:
+- pipx (for isolated installations)
+- PyInstaller (for building standalone executables)
 
 ## License
 
