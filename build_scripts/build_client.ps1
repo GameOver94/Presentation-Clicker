@@ -1,6 +1,7 @@
 # Build the Presentation Clicker Client as a standalone executable
+
 pyinstaller --noconsole --name PresentationClickerClient `
-  ..\presentation_clicker_client\presentation_clicker_client\ui_client.py
+  ..\presentation_clicker\client\ui_client.py
 
 # Compress the entire build output folder to a zip file and copy to build_scripts
 $distFolder = ".\dist\PresentationClickerClient"

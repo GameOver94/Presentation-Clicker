@@ -1,8 +1,6 @@
-ttkbootstrap
-paho-mqtt
-cryptography
-keyboard
-pyyaml
--e ./presentation_clicker_common
--e ./presentation_clicker_client
--e ./presentation_clicker_listener
+ttkbootstrap>=1.10.0
+paho-mqtt>=1.6.0
+cryptography>=41.0.0
+keyboard>=0.13.5
+pyyaml>=6.0
+pillow>=10.0.0

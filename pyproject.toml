@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "presentation-clicker"
+version = "0.3.0"
+description = "Wireless presentation remote control system using MQTT"
+readme = "README.md"
+authors = [{name = "GameOver94"}]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Multimedia :: Graphics :: Presentation",
+    "Topic :: System :: Networking",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+keywords = ["presentation", "remote", "control", "mqtt", "wireless"]
+requires-python = ">=3.8"
+dependencies = [
+    "paho-mqtt>=1.6.0",
+    "PyYAML>=6.0",
+    "Pillow>=10.0.0",
+    "ttkbootstrap>=1.10.0",
+    "cryptography>=41.0.0",
+    "keyboard>=0.13.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/GameOver94/Presentation-Clicker-Development"
+"Bug Reports" = "https://github.com/GameOver94/Presentation-Clicker-Development/issues"
+Source = "https://github.com/GameOver94/Presentation-Clicker-Development"
+
+[project.scripts]
+presentation-clicker = "presentation_clicker.cli:main"
+
+[tool.setuptools]
+packages = ["presentation_clicker", "presentation_clicker.common", "presentation_clicker.client", "presentation_clicker.server"]
+
+[tool.setuptools.package-data]
+"presentation_clicker.client" = ["*.yaml"]
+"presentation_clicker.server" = ["*.yaml"]

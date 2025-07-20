@@ -10,7 +10,7 @@ from typing import Callable
 
 import paho.mqtt.client as mqtt
 
-from presentation_clicker_common import BaseMqttHandler
+from ..common import BaseMqttHandler
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'mqtt_config.yaml')
 

@@ -6,6 +6,17 @@ A cross-platform, secure, and user-friendly remote presentation control system. 
 
 Presentation Clicker is designed to make remote presentation control seamless, secure, and intuitive. It is especially useful for online conferences, meetings, and town halls where multiple presenters need to control a centrally hosted presentation. With this tool, presenters can advance their own slides without needing to ask someone else to do it — eliminating the need for the "Next slide, please." The system ensures ease of use for all participants.
 
+## What's New in v0.3.0
+
+Version 0.3.0 introduces a major code refactoring with a simplified, flat folder structure across all modules. This update improves:
+
+- **Developer Experience:** Easier navigation and simplified imports
+- **Code Maintainability:** Consistent structure across client, server, and common modules  
+- **Build Process:** Streamlined build scripts and configuration files
+- **Project Organization:** All module files are now at the root level of each package
+
+The functionality remains the same, but the codebase is now cleaner and more maintainable for future development.
+
 ## Components
 
 ### Listener (Server)
@@ -40,17 +51,56 @@ git clone https://github.com/GameOver94/Presentation-Clicker-Development.git
 cd Presentation-Clicker-Development
 ```
 
-### 2. Install with pipx
+### 2. Install Dependencies and Modules
 
-#### Client
+Install all modules in development mode:
+
 ```powershell
+# Install the common module (required by both client and server)
+cd presentation_clicker_common
+pip install -e .
+cd ..
+
+# Install the client module
+cd presentation_clicker_client
+pip install -e .
+cd ..
+
+# Install the server module
+cd presentation_clicker_listener
+pip install -e .
+cd ..
+```
+
+### 3. Alternative: Install with pipx
+
+For isolated installations with pipx, you have two options:
+
+#### Option A: Install with Dependencies (Recommended)
+```powershell
+# Install client with common library as dependency
+pipx install ./presentation_clicker_client --include-deps
+
+# Install listener with common library as dependency  
+pipx install ./presentation_clicker_listener --include-deps
+```
+
+#### Option B: Manual Dependency Installation
+If the above doesn't work, install the common library first, then inject it:
+
+```powershell
+# Install the client or listener first
 pipx install ./presentation_clicker_client
+
+# Then inject the common library into the same environment
+pipx inject presentation-clicker-client ./presentation_clicker_common
+
+# For the listener:
+pipx install ./presentation_clicker_listener
+pipx inject presentation-clicker-listener ./presentation_clicker_common
 ```
 
-#### Listener
-```powershell
-pipx install ./presentation_clicker_listener
-```
+> **Note:** pipx has limited support for local package dependencies. If you encounter issues, use the development installation method instead.
 
 > **Note:** Pre-built standalone executables for Windows are available on the [GitHub Releases](https://github.com/GameOver94/Presentation-Clicker-Development/releases) page. You can download and run these without installing Python or any dependencies.
 
@@ -62,10 +112,20 @@ pipx install ./presentation_clicker_listener
 ```powershell
 presentation-clicker-client
 ```
+Or run directly from the module:
+```powershell
+cd presentation_clicker_client
+python -m ui_client
+```
 
 ### Run the Listener
 ```powershell
 presentation-clicker-listener
+```
+Or run directly from the module:
+```powershell
+cd presentation_clicker_listener
+python -m ui_server
 ```
 
 Both commands will launch a graphical interface. Follow the on-screen instructions to connect and control your presentation.
@@ -146,21 +206,25 @@ You can build standalone Windows executables for both the client and server usin
 2. **Run the Build Scripts**
    In the `build_scripts` folder, run the provided PowerShell scripts:
    ```powershell
+   cd build_scripts
+   
    # Build the client
-   ./build_scripts/build_client.ps1
+   .\build_client.ps1
 
    # Build the server
-   ./build_scripts/build_server.ps1
+   .\build_server.ps1
    ```
    Each script will build the application and create a `.zip` file containing the executable and all required files.
 
 3. **Find the Executables**
-   The zipped build artifacts will be located in the `build_scripts` folder (e.g., `PresentationClickerClient.zip`).
+   The zipped build artifacts will be located in the `build_scripts` folder:
+   - `PresentationClickerClient.zip` - Client executable package
+   - `PresentationClickerServer.zip` - Server executable package
 
 4. **Download from GitHub Releases**
    Pre-built executables are also available for download from the [GitHub Releases](https://github.com/GameOver94/Presentation-Clicker-Development/releases) page. Download and extract the appropriate `.zip` file for your platform.
 
-> **Note:** The standalone executables include all dependencies. No Python installation is required to run them.
+> **Note:** The build scripts have been updated for v0.3.0 to work with the new folder structure. The standalone executables include all dependencies and no Python installation is required to run them.
 
 ## Requirements
 - Python 3.9+

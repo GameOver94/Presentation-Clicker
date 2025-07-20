@@ -2,13 +2,13 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Run Client as Module",
+            "label": "Run Client",
             "type": "shell",
             "command": "python",
-            "args": ["-m", "ui_client"],
+            "args": ["-m", "presentation_clicker.cli", "client"],
             "group": "build",
             "options": {
-                "cwd": "${workspaceFolder}/presentation_clicker_client"
+                "cwd": "${workspaceFolder}"
             },
             "presentation": {
                 "reveal": "always"
@@ -16,13 +16,13 @@
             "problemMatcher": []
         },
         {
-            "label": "Run Listener as Module",
+            "label": "Run Server",
             "type": "shell",
             "command": "python",
-            "args": ["-m", "ui_server"],
+            "args": ["-m", "presentation_clicker.cli", "server"],
             "group": "build",
             "options": {
-                "cwd": "${workspaceFolder}/presentation_clicker_listener"
+                "cwd": "${workspaceFolder}"
             },
             "presentation": {
                 "reveal": "always"

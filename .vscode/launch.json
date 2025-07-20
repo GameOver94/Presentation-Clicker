@@ -4,50 +4,63 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
         {
-            "name": "Debug Client as Module",
+            "name": "Debug Client",
             "type": "debugpy",
             "request": "launch",
-            "module": "presentation_clicker_client.ui_client",
+            "module": "presentation_clicker.cli",
+            "args": ["client"],
             "justMyCode": true,
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
-            // "args": ["--theme", "darkly"]
+            // "args": ["client", "--theme", "darkly"]
         },
         {
-            "name": "Debug Listener as Module",
+            "name": "Debug Server",
             "type": "debugpy",
             "request": "launch",
-            "module": "presentation_clicker_listener.ui_server",
+            "module": "presentation_clicker.cli",
+            "args": ["server"],
             "justMyCode": true,
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
-            // "args": ["--theme", "darkly"]
+            // "args": ["server", "--theme", "darkly"]
+        },
+        {
+            "name": "Debug Client Module Directly",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "presentation_clicker.client.ui_client",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug Server Module Directly",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "presentation_clicker.server.ui_server",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
         },
         {
             "name": "Debug Client Script Directly",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/presentation_clicker_client/presentation_clicker_client/ui_client.py",
+            "program": "${workspaceFolder}/presentation_clicker/client/ui_client.py",
             "justMyCode": true,
             "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            }
+            "console": "integratedTerminal"
         },
         {
-            "name": "Debug Listener Script Directly",
+            "name": "Debug Server Script Directly",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/presentation_clicker_listener/presentation_clicker_listener/ui_server.py",
+            "program": "${workspaceFolder}/presentation_clicker/server/ui_server.py",
             "justMyCode": true,
             "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            }
+            "console": "integratedTerminal"
         }
     ]
 }

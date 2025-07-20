@@ -13,10 +13,10 @@ from tkinter import ttk
 from typing import Optional, Any
 
 import keyboard
-from mqtt_server import PresentationMqttServer
+from .mqtt_server import PresentationMqttServer
 from ttkbootstrap import Style
 from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
-from presentation_clicker_common import (
+from ..common import (
     BaseApp, create_main_function, get_misc_icons, UILogger
 )
 
@@ -304,9 +304,9 @@ class ServerListenerApp(BaseApp):
                 elif action in ("start", "end", "blackout") and perms.get("control"):
                     allowed = True
                     if action == "start":
-                        keyboard.send("shift+f5")
+                        keyboard.send(['shift', 'f5'])
                     elif action == "end":
-                        keyboard.send("end")
+                        keyboard.send("esc")
                     elif action == "blackout":
                         keyboard.send("b")
                 

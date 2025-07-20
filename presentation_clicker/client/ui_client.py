@@ -12,8 +12,8 @@ from typing import Optional
 
 from ttkbootstrap import Style
 from ttkbootstrap.constants import PRIMARY, SUCCESS, DANGER
-from mqtt_client import PresentationMqttClient
-from presentation_clicker_common import (
+from .mqtt_client import PresentationMqttClient
+from ..common import (
     BaseApp, create_main_function, get_misc_icons, UILogger
 )
 
@@ -108,7 +108,7 @@ class PresentationClickerApp(BaseApp):
 
     def _setup_log_colors(self):
         """Setup log colors for sent/received messages."""
-        from presentation_clicker_common import get_message_colors
+        from ..common import get_message_colors
         colors = get_message_colors(self.theme_manager.is_dark_theme())
         # Use background colors for message tags (consistent with UILogger)
         self.txt_log.tag_config("sent", background=colors["sent"])

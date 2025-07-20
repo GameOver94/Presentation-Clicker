@@ -35,3 +35,6 @@ mqtt_config.yaml
 
 # Copilot files
 REFACTORING_SUMMARY.md
+
+# Backup folder
+*.backup
